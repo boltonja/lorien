@@ -1,0 +1,327 @@
+9 October 2024 v 1.7.4
+- Clang-format according to FreeBSD style(9)
+- Multiple passes with Clang-16 and gcc-10 -Wall cleaning up warnings
+- Removed cruft supporting K&R compilers and ancient systems, long may they live
+- Cleaned up the makefile
+- All functions have (or should have) prototypes so the compiler can find bugs
+- Fixed uninitialized values and null dereference found with GCC-10 -fanalyzer
+- Fixed a small number of the many many things splint still complains about
+
+30 October 2008 (Thu) v 1.7.4alpha
+- streamlined flags handling using token pasting
+- changed permissions and mode flag values to enums
+- fixed hilite status messages, especially empty case for "none"
+- added new ring_buffer struct for formatted histories
+  but decided not to add histories due to privacy issues.
+- added dotspeeddial for .p foo  going to last number .p'd
+- fixed annoying wrap bug when line breaks are at wrap column.
+- added wrap width to player struct, .r# sets to width, .r toggles on and off,
+  .r0 toggles off.
+- fixed yell mode bugs stage (poses and escaped (>) stage poses to channel.)
+- added help text for > escape in Yell mode enabled msg.
+- help system no longer crashes when a record with no | separator is encountered.
+- added testring and testhelp targets to test the ring buffer and help modules.
+- updated .f# to dump more of the player struct and all flags (set/unset) and privs
+- fixed buffer overflow in idle time formatting for 64-bit time_t implementations,
+  would have triggered at hrs>999,999 (114+ years)
+
+
+23 February 2005 (Wed) v 1.7.3
+- Made who list search host and doing fields
+- Made players silent (no arrival/departure) until named
+- Silent players have chnl==NULL, so modified places like 
+  who list, finger, removeplayer to ignore NULL channels.
+- Added ANTISPAM bait and logging features for catching spammers.
+  Enable with -DANTISPAM
+- fixed a bug in .i's whereby missing line numbers weren't reported
+- allow .i 250 YOYO to echo "250 YOYO" globally, but .i250 YOYO goes
+  to line 250.
+
+26 December 2004 (sun) v1.7.2h
+- Fixed wedge bug related to player removal (incorrect prev pointer maintenance) 
+
+3 October 2003 (fri) v1.7.2g
+- Fixed several crash bugs related to player removal (more probably exist)
+- Added stage pose feature.
+
+12 June 2003 (Thu) v1.7.2f
+- Added feature to retain original hostname.
+
+10 June 2003 (Tue)
+- Updated changedlog for 20 Aug 1999.
+
+20 Aug 1999 (Fri) v1.7.2e
+- Removed global_lineno nonsense from newplayer once and for all.
+- Fixed a bug where ungagging might not ungag the right line in the process
+- Fixed a bug where players were not removed early enough.
+  Also known as the "too many dead sockets crash the soup" bug.
+- Fixed a bug where a check for gagged message might overrun the buffer,
+  especially if the message is a .i...  the right fix is probably to not
+  reconstruct the line number from the message but to track the fd 
+  all the way through...
+- bumped version to 1.7.2e
+
+26 July 1997 (Sat) 
+  - Fixed bug in servsock.c which occasionally caused main channel to be 
+    nameless.
+
+22 June 1997 (Sun) v1.7.2c
+  - Minor aesthetic fix in parse.c.  When an op attempted to remove a 
+    ban that did not exist, the message ">> (null) removed from banlist"
+	went to all players.  Now an error message goes to the op.  
+	Thanks to ken@sector7.com (Ken Persinger) for the report.
+
+23 Mar 1997 (Sun) v1.7.2b
+  - Added Yellmode.  Thanks to Kazi (Isaac Kishk) for the suggestion.
+
+01 November 1996 (Fri) v1.7.2a
+  - Fixed bug in newplayer.c which caused recvbuf to be overrun.  This
+    didn't affect all systems, for some reason but caused inexplicable
+	crashes periodically under SunOS and under some Linux distributions
+	caused the main channel name to be overwritten with the NUL character.
+	Thanks to Charlie Ross for providing a debugging environment and 
+	reporting the bug.
+30 October 1996 (Wed) v1.7.2
+  - Fixed bug in parse.c which caused players to be removed twice
+    when they quit.  This does not constitute a new release.
+	Thanks to Charlie Ross for all his helpful feedback on this one.
+24 October 1996 (Thu) v1.7.2
+  - Integrated minor changes from all over the place to make things
+    compile on various machines.  Thanks to Amanda Green (Eliste),
+	Eli (Ski Bub), Charlie Ross (Charles.A.Ross@cc.gettysburg.edu)
+	and Dan Lawrence (Bergon) for feedback on builds.
+  - Added Bergon's (Dan Lawrence) changes to the log function to 
+    put times with messages.
+  - This release is meant to get the 1.7.1-alpha code out as 
+    a stable version and to be an official release.  Somehow 
+	there are some tainted releases out there going by the names
+	1.7.0a and 1.7.1-alpha.  (Thanks to Charlie Ross for the feedback)
+
+28 March 1995 (Tue) 
+  - Ban information is sent to everyone regardless of flags.
+  - Modified settablesize() to disallow setting the size to
+    less than the highest numbered fd in use.
+
+27 March 1995 (Mon) v1.7.1-alpha
+  - Added /Mo to modify the file descriptor count.
+  - Removed /g forever.  It's far more effective to throw
+    someone on their own channel and lock them there.
+  - Added /Purgelog to purge the log.
+  - Added /I (ignore .I's)
+  - Moved all toggle fields in the structure to a bit the flags field.
+  - Minor changes to facilitate new list code.
+
+26 March 1995 (Sun)
+  - Removed maxconn.h from sources.  This is now taken care of via
+    a call to gettablesize()
+  - Added files.c to distribution.  This houses the following functions:
+       gettablesize()
+       settablesize()
+       getdtablesize()
+       setdtablesize()
+    Note that getdtablesize() and setdtablesize() are only defined
+    by the sources if they are undefined on the target system.
+  - Changed the gags field to be an fd_set.
+  - There was a bug by which you could gag players that did not
+    exist.  This is now fixed.
+  - Cleaned up some of the code.
+
+25 March 1995 (Sat) v1.7.0b-beta
+  - Incorporated changes necessary to port to DYNIX/PTX 2.0
+  - Updated the README file.
+
+17 March 1995 (Fri)
+  - Removed all the vives from Hermit's original haven code
+    and incorporated the changes.  Thanks to windswept for the
+    report.  From Windswept's home page:  "lorien is devived
+    from the original haven by Chris Eleveld (The Insane Hermit)"
+
+01 March 1995 (Wed) 
+  - Changed handleinput() to avoid some potentially nasty problems
+    that as yet haven't been encountered, including core dumps
+    and such due to removing players for sending too much input.
+  - Detected before and after call to processinput() whether a player
+    is leaving.  If so, refrain from processing the input.
+    This should avoid people queuing up large amounts of input
+    and output and then leaving, letting the haven spin its wheels
+    for nothing.
+  - Now sets leaving flag in sendtoplayer() allowing us to detect a
+    dead socket at any point of execution.  This should keep the
+    log from filling up with "error attemtping to send" messages.
+  - Thanks to Random (Corey Espich) and Krelin (Brian Crowder) for
+    the bug reports.
+
+19 February 1995 (Sun)
+  - Changed parse.c to properly place the braces inside the preprocessor
+    directives for the ONFROM_ANY define.  Thanks to Random (Corey Espich)
+    for the bug report.
+
+16 February 1995 (Thu) v1.7.0a
+  - Well, that didn't take long!  Thanks to Wakko Warner (Michael McClellan)
+    for alpha testing.
+  - HP/UX documentation is now much better.
+  - getmax.c now looks for itself when -DNO_GETDTABLESIZE is defined,
+    instead of the elusive hpgetmax.c :)
+  - security.h has the backslash removed.
+  - the Makefile defaults to defining -DUSE_CONFIG_H instead of
+    -DDEFAULT_NAME and -DDEFCHAN, which don't work under some
+    implementations of csh and bourne shell.  Good thing I had the
+    foresight to realize this and wasn't too upset, eh?
+  - The annoying pose bug is fixed.  (*buf = ',')
+  
+    
+16 February 1995 (Thu) v1.7.0
+  - Numerous changes since November, mostly bug fixes.
+  - Updated the documentation.
+  - Changed the code a bit to center the configuration process more
+    around the Makefile and added comments to the makefile.
+  - NEW:  The file lorien.block contains initial bans.
+  - NEW:  The file lorien.power contains passwords.  Restart the program
+          and it will re-read the file.  The format is one password per
+          line, as below
+          level0
+          level1
+          level2
+          level3
+          level4
+          level5
+          shutdown password
+  - Poses now have no space inserted after the name if the first character
+    is either an apostrophe or a comma.  Thanks to Krelin (Brian Crowder)
+    for the diffs.
+  - semicolons now work as poses in addition to colons.
+  - /ban is now available for everyone, to check the banlist
+  - /bandel and /banadd now broadcast to everyone as an arrival class
+    message.
+  - Fixed hilites so that the status string has \r\n in it.
+    Now it actually shows before the next output comes your way :)
+  - Added CANQUIT ("/CQ" and CANCAPS "/CC" to the privileges mask
+  - Changed CANCHANNEL flag specifier for /C from 'C' to 'T'
+  - Fixed .M bug---error message when no channel name is specified.  Thanks
+    to Random (Corey Espich) for the report.
+  - Fixed input buffer overrun bug that SubZero was exploiting.  Many
+    thanks to SubZero (Maikeru Long) for simply telling me what the problem 
+    was so I didn't have to spend hours tracking it down and making certain
+    I had it fixed.
+  - Changed messages to be more meaningful.
+  - Fixed channels so you can have numeric channels.  Thanks to 
+    Joe Cool (Mark Recio) from Butler for the bug report.
+  - Updated help code for the new features.
+  - The makefile no longer comes set up specifically for any OS.
+  - I think that covers it.  I think.
+
+29 November 1994 (Mon)
+  - Got rid of some warnings.
+  - Merged utility.c with Chris Eleveld's utility.c
+  - Added support for HP/UX.  HP/UX Make seems to have a few problems 
+    with the makefile I built, particularly with dependencies.
+  - Moved getdtablesize() to getmax.c, and use it in the makefile.
+    Wrote a fudge for getdtablesize() that seems to work under HP/UX.
+    If getdtablesize() is available, it will be used, otherwise,
+    my custom version will be used.  Used some sed magic to create
+    maxconn.h, which is included by all files.
+
+15 November 1994 (Tue)
+  - Removed (completely) the old code for handleinput() from parse.c and
+    newplayer.c.  The old code prior to this date could be re-enabled
+    with #define OLDWAY.  This code seems to be stable enough that the
+    old code is no longer needed.
+  - Changed parse.c to allow all players to see the banlist.
+  - Some fixes to the gag code to check array bounds.
+  - Finally sick of the apparent problem with recursive removeplayer() calls,
+    I now rely solely on handleinput() to detect dead players.  This way,
+    sendtoplayer() won't call removeplayer() which should keep the linked
+    list straight.  (I hope).  After all, we didn't have this problem
+    before I optimized the list traversal.
+  - Incremented the version number to 1.6.1d.
+
+08 November 1994 (Tue)
+  - More oversight fixes for the optimizations in the departure.  sheesh.
+
+19 October 1994 (Wed)
+  - Fixed, hopefully, the oversight that I forgot to set the leaving flag
+    in removeplayer()  (Gee, that was dumb.)
+  - Changed all references to MAXCONN to be references to getdtablesize()
+    less some random value (not)  The subtracted value is the necessary
+    number of available fd's that lorien needs to survive.
+  - Added -DNO_LOG_CONNECT to the makefile and the sources.
+  - Began preparations for shortening the player struct (see macros 
+    and stuff in lorien.h)
+
+17 October 1994 (Mon)
+  - Changed a few things, most notably there was a bug in sendall()
+    and removeplayer() that is now fixed.  By passing the line number
+    of the player who is departing, we eliminate the "repeating departure"
+    bug (hopefully) because we have the correct number when traversing the
+    list.  Also edited the player struct to add a leaving flag.
+  - Added 'tar' and 'shar' targets.
+
+11 October 1994 (Tue)
+  - Disabled Ban list code for now.
+  - Fixed "lost line" bug (when more than one line was received per packet,
+    only the first line was processed.)
+  - Now works with char-by-char mode telnet connections.
+  - Fixed /p hilites.
+  - /p hilite command now echoes back the settings.
+  - Added vt200 style linewrap.  This code does work with hilites.
+  - Sped up some code.
+  - Removed some redundant code.
+  
+12 September 1994 (Mon)
+  - Finalized help system format.
+  - Added priviliges flags for Yell, Whisper, Name, and Channel.  Thanks to
+    Krelin (btcrowde@culebra.uccs.edu) for the suggestion.
+  - Removed debug switch from the makefile.
+  - Added history to the help file.  (subject to revision)
+  - Updated help file to include proper seclevels in the power help section.
+  - Packaged it up and called it 1.5.3a
+
+7 September 1994 (Wed)
+
+  - incorporated Hermit's servsock changes for port numbers.
+  - rewrote the change_channel and wholist code completely to accomodate...
+  - named channels.
+  - added secure channels.
+  - added message toggles
+  - added port in the second who list
+  - added /p beeps
+  - removed some frivolous garbage such as zoning (which wasn't even
+    available anymore)
+  - removed the sysop message in the logs since few sysops pay attention to it.
+  - changed the help files.
+  - added /o and /l (apparent hostname change and level show toggle)
+  - levels now show for everyone.  empowered persons can change their
+    apparent power level and hostname.
+
+20 July 1994 (Wed)
+
+  - altered servsock.c fcntl() statement for SCO:
+    if FNDELAY is undefined, attempt to use O_NDELAY
+  - altered passfeof.c and passfread.c
+    there was a bug which would corrupt the stack frame on
+    some systems due to NUL-ing bytes referenced from the password
+    structure in padd() which lay outside the structure.
+  - moved fclose(testfile) in filetest.c so that things might seem to be
+    right.
+  - added a note to the makefile for SCO to get the socket routines.
+    this may be valid for other UNIX's as well.
+  - incorporated Chris Eleveld's changes for the Bull/DPX machine in
+    Romania.  Bull/DPX needs some special LIBS.  See the Makefile
+  - changed the inclusion of <string.h> and <strings.h> so that
+    most reasonable BSD systems should be detected via the preprocessor define
+    BSD and STRICT_BSD
+  - reworked password routines to work (hopefully) on most systems.
+ 
+  (JAB, Creel)
+
+Some-time back before summer of 93
+
+  - Added line gagging.
+  - Removed a bunch of silly power commands (hide player, etc.)
+  - Fixed forced poses.
+  - Added whisper echoing and hushes.
+  - Removed /p logging.
+  - Removed the "omnipotent" channel where all /p's and private convos could
+    be heard.
+  - Added password name protection.
+

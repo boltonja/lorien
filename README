@@ -1,0 +1,196 @@
+Lorien 1.7.0 Documentation
+
+24 October 1996 (cosmetic changes only.)
+12 September 1994
+16 February 1995
+25 March 1995
+
+Jillian Alana Bolton  (Creel)
+jillian@rootaction.net
+
+(-----------------------------------------------------------------------
+Special thanks to all the people who have helped make it possible to
+put this distribution together, including:
+
+ Chris Eleveld (Hermit) -       For writing this thing in the first place,
+                                and collaborating.
+ Robert Slaven (Tigger) -       For sending me a copy of the 'Woods'
+ Dave Mott (Energizer Rabbit) - My partner in crime.
+ Heather Geary (Pooh)   -       For helping test the file functions.
+ Andrew Weisskop (Robin) -      For the same.
+ Brian Crowder (Krelin) -       For giving it a very thorough live test.
+ Corey Espich (Random) -        For the same.
+ Amanda Green (Eliste) -        For providing a testbed for new code.
+-----------------------------------------------------------------------)
+
+Contents:
+
+I.     Introduction
+II.    Development History
+III.   Packing List
+IV.    Installation
+V.     New features
+VI.    Contributing
+
+I. Introduction
+
+The code in this release is not finished, but it has been cleaned up a
+bit so that it can be expanded upon in a clean and efficient manner.
+This document explains how to compile the release version, and what
+changes can be made immediately to improve or customize code.
+
+Copyright 1990-1996 Chris Eleveld
+Copyright 1992 Robert Slaven
+Copyright 1992-2024 Jillian Alana Bolton
+Copyright 1992-1995 David P. Mott
+
+The BSD 2-Clause License
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the following
+    disclaimer in the documentation and/or other materials provided
+    with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+II. Development History
+
+This code was, to the best of my knowledge, originally developed by
+Chris Eleveld (The Insane Hermit.)  For the most part, the present
+implementation behaves much as did the very first havens.  Several
+features were added to the code by Robert Slaven (The Celestial
+Knight/Tigger.)
+
+The original haven was far simpler than what most people are used to,
+but Chris and others added several commands to make it more
+functional.  Dave Mott (Energizer Rabbit) and Jillian Bolton (Creel)
+cleaned up the code.
+
+Jillian also added the first line gags and password name protection.  She
+later incorporated features from other havens, such as whisper echo-ing
+and hilites, message toggles, channel names, secure channels, yell
+hush.  While the password protection is not designed to be a login
+feature, it could easily be modified with a small change to the parser
+and the addition of a flag to the player structure.  In addition, Jillian
+also tried to make the code more portable by taking out unnecessary
+redeclarations.
+
+Jillian's latest endeavors include sitebans and optimizations.  The
+CHANGELOG file keeps track of the important changes.
+
+III.  Packing List
+
+Note: this list is outdated.
+
+     In the Lorien distribution you will find the following files.
+
+CHANGELOG           - A log of significant and insignificant modifications.
+Makefile            - The file used to build the project.  Type 'make'
+README              - This file.
+READ_ME_QUICK_START - A quick start file with some very basic instructions.
+ban.c               - Code for banning sites.
+ban.h               - Definitions for ban.c 
+chat.c              - Some of the main code for the daemon.
+config.h            - Used if some things can't be selected in the makefile.
+filetest.c          - An old program useful for testing to see if your
+                      implementation of the stream i/o functions is broken.
+getmax.c            - Used to determine the maximum number of connections
+                      at compile time.
+help.c              - The help routines.
+log.c               - Routines for the log file.
+lorien.c            - More code for the daemon and the startup code.
+lorien.h            - Defines and declarations used by all files.
+lorien.help         - The default help file.
+lorien.welcome      - The default welcome file.
+newpass.c           - The new, highly inefficient but fairly reliable 
+                      password routines.  Actually, they are no less efficient
+                      than those previously used.  They do, however, work
+                      better.
+newplayer.c         - The code for handling player operations, and obtaining
+                      input and sending output.  These are high-level routines.
+parse.c             - The code for handling the commands.
+security.h          - Edit this and put your own passwords in.
+servsock.c          - Low level socket routines.
+sockets.doc         - A document describing how sockets work.  This should
+                      help you understand Chris's servsock.c.
+sysop.doc           - A document for you to read.
+utility.c           - Routines shared by Chris's Haven and Lorien.
+utility.h           - Defines used by utility.c
+
+IV.  Installation.
+
+Simply get into the Lorien directory and type 'make'. You probably
+also want to create files called lorien.power, lorien.welcome, and
+lorien.db; and you will want to secure them. A suggested set of
+commands to do this:
+
+	make secure
+
+You should run it again after building to ensure the binaries and
+objects are protected from tampering.  The lorien.welcome is an
+(ostensibly) text file that will be shown to users when they join.
+
+You should also edit the lorien.power file as described below, and
+keep copies of lorien.power, lorien.db, and lorien.welcome so they
+don't get overwritten by future downloads.
+
+Launch with one of the following commands:
+       lorien 2525 # run in the foreground
+       lorien -d 2525 # run in the background
+
+You should edit the file lorien.power to set the passwords.  This file
+is read every time Lorien starts and contains, in order, the level 0
+through level 5 passwords, followed by the shutdown password.  There
+is one password on each line.  Passwords can be up to 19 characters
+long.  The distribution comes with a file that looks like this:
+
+---CUT HERE---
+lev0
+lev1
+lev2
+lev3
+lev4
+lev5
+shutup
+---CUT HERE---
+
+V.  New Features
+
+There are a host of new features.  The ones which need the most
+explaining are here.  The help file has a new format, and there is only
+one.  The format is described in the comments in the help file.  Read
+them.
+
+There is now a ban file, lorien.block.  Put, on a separate line, the
+name of each host you wish to block.  It is reccommended that you put
+both the site name and the IP address in the file in case initial
+hostname lookups fail.
+
+Other neat stuff, read the HELP FILE!
+
+VI. Contributing
+
+Contributions are welcome. Please read the coding style, this project
+uses FreeBSD's style(9), and please use the clang-format spec included
+with the source code.
+
+https://man.freebsd.org/cgi/man.cgi?query=style&sektion=9
+https://clang.llvm.org/docs/ClangFormat.html

@@ -1,0 +1,188 @@
+Copyright 1992-2024 Jillian Alana Bolton
+
+The BSD 2-Clause License
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the following
+    disclaimer in the documentation and/or other materials provided
+    with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+                   The TinyFugue Survival Guide, 3rd Edition.
+                                        
+                              Maintained by Creel
+
+Use 'tf' at the Unix prompt to start TinyFugue.  You may get the
+following message if the first 'world' in your tiny.worlds file is
+temporarily down:
+
+"Couldn't connect to socket:xxx"
+
+where xxx is some dumb reason like "connection refused" or "connection
+timed out" or "host is unreachable."  Don't worry about it.  This may
+also happen when trying to connect to other worlds.  The message means
+that the desired world is refusing connections.
+
+SELECTING HAVENS:
+
+The way to select the right haven is with the '/world' command.  The
+syntax is '/world <name>' Some havens you may wish to add follow:
+
+NAME			/WORLD NAME	ADDRESS
+---------		-------------	-------------
+LegoLand                lego            eleven.uccs.edu 5252
+The Coffee House        ch              eleven.uccs.edu 2525
+The Hotel California    hc              neuromancer.hacks.arizona.edu 6060
+Airlilly Downs          downs           voyager2.stanford.edu 6060
+The Gates of Hell       hell            voyager6.stanford.edu 6060
+The Opium Den           od              xenon.chem.ucla.edu 1234
+Helle's Belle           belle           eleven.uccs.edu 2222
+The Vampire's Coffin    vc              dv349-1a.berkeley.edu 6666
+
+Note that you can have more than one world active at once.  Tinyfugue
+will keep the appropriate connections' output until you re-select that
+world.  To switch, just type /world <name> again.  If in doubt as to
+which world is active, simply type /listsockets.  Tinyfugue will be
+more than happy to list all open connections and their status.  The
+status is usually one of the following:  current, dead, or idle. 
+
+
+DISCONNECTING FROM A WORLD:
+
+  - Make sure you have that world active:   /world <name>
+  - Then use the disconnect command:        /dc
+
+ADDING NEW WORLDS:
+
+  - To add a new world, simply type:
+
+        /addworld <name> <address> <portnum>
+
+    example:
+
+        /addworld lego eleven.uccs.edu 5252
+
+  - Remember to use the /saveworld comand
+
+        /saveworld
+
+USING HAVEN COMMANDS:
+
+Since all tinyfugue commands begin with slash ('/'), you have to send
+two slashes to get TinyFugue to pass a slash to the haven.  Thus, '/p1
+hi' becomes '//p1 hi'.  Alternatively, you can replace the slash with a
+period ('.') on most havens, i.e. '.p1 hi'.
+
+QUITTING TINYFUGUE:
+
+The /quit command closes all open connections and returns you to UNIX.
+
+EDITING:
+
+The left and right cursor keys will move you within the line of input
+you are entering.  The up and down arrows keys scroll you through the
+history of what you have typed, that you may re-send lines or edit
+small mistakes.  If the up and down keys do not work, CTRL-P is
+previous (up) and CTRL-N is next (down).  Also, CTRL-A moves you to the
+beginning of the line and CTRL-E to the end.
+
+KEY             PURPOSE
+---------       -----------------------------------------------------
+CTRL-A          Move cursor to beginning of input.
+CTRL-B          Move cursor back one word (beginning of word).
+CTRL-E          Move cursor to end of input.
+CTRL-F          Move cursor forward one word (beginning of word).
+CTRL-N          Scroll forward in the history list.
+CTRL-P          Scroll backward in the history list.
+
+USING HILITES:
+
+  - Turn on hilites with '/hilite'
+  - Turn off hilites with '/nohilite'
+  - Define a hilite with '/hilite pattern'
+  - Disable a hilite with '/nohilite pattern'
+
+The patterns are generally simple wildcard patterns.  The principle
+wildcard character (and the only one I have ever found necessary) is
+the asterisk ('*')  The asterisk matches any character or group of
+characters.  If you have non-wildcard characters in the pattern, they
+must be matched for the hilite to trigger.  The alphabetic characters
+match in either case.  For example:
+
+This pattern            Matches lines containing:
+---------------         ----------------------------------
+*Creel*                 The name Creel
+*,p*                    any whisper on the haven.
+Creel                   The name "Creel" all by itself.  Anything
+                        else on the line will cause it not to match.
+*Broadcast*Creel*       Lorien broadcast messages from Creel only.
+
+
+USING GAGS:
+
+  - Turn on gags with '/gag'
+  - Turn off gags with '/nogag'
+  - Define a gag with '/gag pattern'
+  - Disable a gag with '/nogag pattern'
+
+Gags keep text from showing on your screen.  The patterns work the same
+as for hilites.  Some versions of tinyfugue have the priorities for
+hilites greater than those for gags, if the text matches both the
+hilite and the gag, it will appear hilited.
+
+MACROS:
+
+Macros allow a large degree of customization and automation.  They are
+for the most part beyong the scope of this edition of the guide.
+However, to define a simple macro that just annoys everybody if you use
+it too much, you could use the following command:
+
+        /def annoy=i am just saying this automatically to annoy you.
+
+Then all you have to do is type '/annoy' about three hundred times and
+everyone will hate you.
+
+Macros can take arguments as well...  Use %* in the macro definition to
+refer to all arguments, or %n where n is the number of the argument you
+wish to match.  Use %\ to start a new command in a macro.  For
+example:
+
+        /def init=.c %1%\.n%2%
+
+This defines a macro called init.  When you type:
+
+        /init mychannel myname
+
+you are placed on channel 'mychannel' and given the name 'myname'.  There
+is a lot more to the art of Tinyfugue macros.  Read the help on /def.
+
+HELP:
+
+Tinyfugue has good built in help.  Simply type '/help' for a list of
+topics, or '/help <topic>' for help on a specific topic.  For example,
+help on the gag command can be obtained with:
+
+        /help gag
+
+Enjoy.  I hope I haven't forgotten anything.
+
+
+

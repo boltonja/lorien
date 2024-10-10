@@ -1,0 +1,237 @@
+# This is a Lorien help file.
+# 
+# Syntax follows:
+# #<text>
+# OR
+# <level>M|<text>
+# OR
+# <level>T[<tag><,tag><,tag>...]|<text>
+# 
+# Each line may be preceded by an optional minimum security level.
+# Lines are output in the order they are encountered.
+# Lines without tags will not be output.
+# All lines have a type, as follows:
+#
+# Type          Meaning
+# ------------- --------------
+# #             Comment
+# M             Message to be displayed if security level is high enough.
+#               Messages do not have tags.
+# T             Text line with tags.
+#
+M|Use /? <pattern> where <pattern> is the name of a section
+M|or a search pattern.  Searches are case insensitive.
+Tsection|Thanks to the following people for developing this code:
+Tsection| - Chris Eleveld (The Insane Hermit)
+Tsection| - Robert Slaven (TCK/Tigger)
+Tsection| - Dave Mott (Energizer Rabbit)
+Tsection| - Jillian Bolton (Creel) 
+Tsection|
+Tsection| The following are available help sections:
+Tsection|
+Tsection| commands         history
+Tsection| communication    info
+Tsection| environment      names
+Tsection| general          sitebans
+Tsection| havens           wrap
+Tsection| help             
+Tsection|
+Tsection| If you are a sysop you can use get help on the "power" section.
+Tsection| And in this stríng wé have mültibyte glyphs.  ðþøßo̊å
+Thelp|Help: Help
+Thelp|
+Thelp|The help system should be easy to use, but powerful.
+Thelp|  -  For help on any command, simply type /? <command>
+Thelp|  -  For a list of help section names, type /? or /? section
+Thelp|  -  To obtain the help for a section, type /? <section-name>
+Thelp|
+Tgeneral|Help: General
+Tgeneral,help|
+Tgeneral,help|Command  Description
+Tgeneral,help|-------  ------------------------------------------------------------------
+Tgeneral,commands,?,help|/?       Get Help.  Use /? to get a list of sections.  Use /? <string>
+Tgeneral,commands,?,help|         Use /? <section-name> to retreive the help information for a
+Tgeneral,commands,?,help|         specific section.
+Tgeneral,commands,n|/n       Set your name.  Use /n <name> to set your name to <name>
+Tgeneral,commands,n|         If <name> is reserved by someone else, you must choose another
+Tgeneral,commands,n|         name.  Anyone caught impersonating others will be disconnected
+Tgeneral,commands,n|         when an operator is notified.
+Tgeneral,commands,u|/u       View the uptime.
+Tgeneral,commands,q,quit|/q       Logs you out of the haven.
+Tgeneral| 
+Tgeneral|Everyone on the haven has a line number.  When you speak with them, you
+Tgeneral|use their name.  It is customary to refer to all "nameless" people by
+Tgeneral|their line number in conversation.  You also use this line number to send
+Tgeneral|commands in their "direction"  For example, to send a whisper to someone
+Tgeneral|on line 17, you type "/p17 hey there!"
+Tgeneral| 
+Tgeneral|See also /? communication
+Thistory|Help: History
+Thistory|----------------------------------------------------------------------------
+Thistory|It is assumed that if you are here, you actually want to know where this
+Thistory|came from.  The first haven was born out of an idea that Chris Eleveld
+Thistory|(aka The Insane Hermit) got from somewhere.  The service you are now
+Thistory|connected still uses some of his code.  (the last estimate was 45%)
+Thistory|
+Thistory|The code was obtained by Rob Slaven (Tigger/TCK) and modified/expanded
+Thistory|(almost beyond recognition in some places) and then later streamlined
+Thistory|and cleaned up by Jillian Bolton (Creel) and Dave Mott. (Energizer Rabbit)
+Thistory|
+Thistory|The first individual line gags were implemented in May of 1992, along with
+Thistory|the original Lorien password scheme for name protection.  This came about
+Thistory|out of a long standing problem with impersonations.  No one wanted to
+Thistory|impose a password system, but some people wanted a form of authentication.
+Thistory|Back in those days, authd was just beginning to catch on and even that is
+Thistory|still no substitute for a password.  (Think account-sharing)  So Creel
+Thistory|offered to the haven community (much smaller back then) the line gags and
+Thistory|password name protection that you see here today.
+Thistory|
+Thistory|Dave Mott cleaned up the parser (it looks a bit different now but operates
+Thistory|about the same as it used to.  Over the next year, Creel worked little
+Thistory|by little to improve the code, and released it under the BSD License.
+Thistory|The code now has extensive online help (you're reading it now) and 
+Thistory|all the features you would expect from a haven.
+Thistory|
+Thistory|One thing Lorien has always had and always will have is power.
+Thistory|Ask your sysop what commands he/she regularly uses.  Power is necessary
+Thistory|to keep things running smoothly.
+Thistory|
+Thistory|Coming soon:
+Thistory|  -  Asynchronous hostname completion with authd lookups.
+Thistory|  -  Scripting language for configuration.
+Thistory|  -  Saving of flags with password information.
+Thistory|
+Tcommunication|Help: Communication
+Tcommunication|
+Tcommunication|To speak on the haven you simply type what you want to say.  You cannot
+Tcommunication|precede the text with a '/' or a '.' as these are command delimiters.
+Tcommunication|
+Tcommunication|To perform an action, use ':'  This is called a pose.  Mudders like to call
+Tcommunication|this "emoting."  Who's right?  Who cares?  It works.  For example:
+Tcommunication|If I type ":waves to everyone"  Everyone on my channel sees this:
+Tcommunication|(0) Creel waves to everyone
+Tcommunication|
+Tcommunication|Command  Description
+Tcommunication|-------  ------------------------------------------------------------------
+Tcommunication,commands,p|/p       Whisper to someone.  Use /p# <msg> to send <msg> to line #
+Tcommunication,commands,y|/y       Yell to everyone who is not hushed.  (see environment) 
+Tcommunication,commands,y|         The format is /y <msg>
+Tcommunication,commands,y|
+Tcommunication|For each of the above commands, you may precede <msg> with a ':' to cause
+Tcommunication|a pose to occur.
+Tcommunication,stage,stage pose,directed,directed pose,`|`#       Stage "aside."  (1) [to CC] (Creel) wow, check out this stage aside, CC!
+Tcommunication,stage,stage pose,directed,directed pose,`|`#:      Stage pose.  (1) [to CC] Creel thinks you should check out this stage pose, CC!
+Tcommunication,stage,stage pose,directed,directed pose,`|         .y`# and .y`#: do the same, but in yells.
+Tenvironment|Help: Environment
+Tenvironment|
+Tenvironment|Command  Description
+Tenvironment|-------  ------------------------------------------------------------------
+Tenvironment,commands,c|/c       Change your channel.  Use /c <name> to change to channel <name>
+Tenvironment,commands,c|         Names may be up to 10 characters long.
+Tenvironment,commands,b|/b       Toggles whisper beeping.  When someone whispers to you, your
+Tenvironment,commands,b|         terminal bell will ring.  Only terminals that understand ASCII
+Tenvironment,commands,b|         will work.  If you are unsure, don't use this as your terminal
+Tenvironment,commands,b|         may hang if you don't have the right terminal.
+Tenvironment,commands,G,gag,gags|/G       Gag a player.  If you use /G# you will no longer hear anything
+Tenvironment,commands,G,gag,gags|         sent by that player.  When he/she logs off, the gag will be reset
+Tenvironment,commands,G,gag,gags|         so that you can hear the new person.
+Tenvironment,commands,G,gag,gags|         Gags are /G as they first were, and are left that way for hysterical raisins.  Creel should know, she wrote them.
+Tenvironment,commands,h|/h       Toggles the "hush" mode.  If you are hushed, you will not hear
+Tenvironment,commands,h|         yells.
+Tenvironment,commands,i|/I       Toggles suppression of unformatted, global messages from ops.
+Tenvironment,commands,i|         When suppressed, directed unformatted messages are still received.
+Tenvironment,commands,m|/m       Toggles arrival and departure message suppression.
+Tenvironment,commands,r,wrap|/r       Toggles VT-style Auto-wrap.  It makes text lines wrap automatically
+Tenvironment,commands,r,wrap|         at the 80th column.  It will keep you from losing the ends of your
+Tenvironment,commands,r,wrap|         lines on terminals without line wrap.  Full featured word wrap may
+Tenvironment,commands,r,wrap|         be implemented in the future.
+Tenvironment,commands,r,wrap|         NOTE FOR TF and DINK USERS:  TinyFugue and Dink have their own
+Tenvironment,commands,r,wrap|                                      built-in wrapping functionality.
+Tenvironment,commands,r,wrap|                                      Lorien wrapping will interfere with TF
+Tenvironment,commands,r,wrap|                                      DINK when /p hilites are enabled.
+Tenvironment,commands,s|/s       Toggles the lock on your channel.  When a channel is secure,
+Tenvironment,commands,s|         no-one else can enter.  An operator CANNOT force him/herself onto
+Tenvironment,commands,s|         a secure channel.
+Tenvironment,commands,H,hilites,highlight,highlights,hilite|/H       This command sets the /p hilite mode.  You can use any combination
+Tenvironment,commands,H,hilites,highlight,highlights,hilite|         of the following:  (b)old (B)link (r)everse (u)nderline
+Tenvironment,commands,H,hilites,highlight,highlights,hilite|         Use /H [Bbru{=|+|-}
+Tenvironment,commands,H,hilites,highlight,highlights,hilite|         The - and + are used to add or subtract the attribute.  Use = to
+Tenvironment,commands,H,hilites,highlight,highlights,hilite|         set all indicated modes.
+Tinfo|Help: Information
+Tinfo|
+Tinfo|Command  Description
+Tinfo|-------  ------------------------------------------------------------------
+Tinfo,commands,f|/f       Obtain a short list of who is logged in.  Four players are listed
+Tinfo,commands,f|         per line.  The names in this list are truncated if they will not
+Tinfo,commands,f|         fit.  Use /f# to get info about a player.
+Tinfo,commands,w|/w       Obtain a list of who is logged in.  If you use /w <pattern> the
+Tinfo,commands,w|         command will only display lines containing <pattern>  Pattern
+Tinfo,commands,w|         is case insensitive.  Only the line number, name, channel, and
+Tinfo,commands,w|         host info is searched.  (This is a lie) 
+Tinfo,commands,W|/W       Obtain extended information about logged in persons, including
+Tinfo,commands,W|         security level and port number on the remote machine.
+Thavens|Help: Other Havens
+Thavens|
+Thavens|Name             Sysop             Address
+Thavens|---------------- ----------------- -----------------------
+Thavens|Coffee House     Creel             rootaction.net 2626
+Thavens|Illusions        Kazi              illusions.zeal.net 6969
+Thavens|Hotel California Tsunami           rootaction.net 6969
+Thavens|The Fire Swamp   Creel             rootaction.net 2525
+Thavens|FreeZone         Bergon            aquest.com     2525
+Thavens|Haven of Sin     Terminator        rootaction.net 6669
+Thavens|The Anti Haven   Robin of Locksley (undisclosed)
+Thavens|
+Tnames|Help: Names
+Tnames|
+Tnames|Command  Description
+Tnames|-------  ------------------------------------------------------------------
+Tnames,commands,n|/n       Set your name.  If you use /n<name>=<password> and you have been
+Tnames,commands,n|         registered by the operator(s) with the name and password you
+Tnames,commands,n|         specify, then your name will be set and you will be marked
+Tnames,commands,n|         as verified in the /W list.  You must request that your name be
+Tnames,commands,n|         registered if you are worried about impersonation.
+Tnames,commands,n|/P       Change your password.  Once you have a registered name, you may
+Tnames,commands,n|         use /P<old>=<new> to change your password from <old> to <new>.
+Tnames,commands,n|         This command may be disabled by the operator(s).
+2Tpower| Help: Power
+2Tpower|
+2Tpower|The normal level for a player is 1.  If your level drops below 1, you will
+2Tpower|be unable to execute most commands.
+2Tpower|
+2Tpower|Command  Description
+2Tpower|-------  ------------------------------------------------------------------
+3Tpower,commands,+|/+       Promote player. /+#
+3Tpower,commands,-|/-       Demote player.  /-#
+2Tsitebans|Command  Description
+2Tsitebans|-------  ------------------------------------------------------------------
+1Tpower,commands,ban,sitebans|/ban     List all banned sites.
+2Tpower,commands,banadd,sitebans|/banadd  Add a site to the banlist.  /banadd <sitename>
+2Tpower,commands,bandel,sitebans|/bandel  Remove a site from the banlist.  /bandel <sitename>
+3Tpower,commands,B|/B       Send a broadcast message.  Usually used to inform players of an
+3Tpower,commands,B|         impending shutdown.
+3Tpower,commands,c|/c       Move player to channel.  /c# <channel>
+4Tpower,commands,C|/C       Change privileges.  use /C# [YNWCTQ]
+4Tpower,commands,C|/C       Y=Yells, N=Names, W=Whisper, T=Channel, Q=Quit, C = Caps
+4Tpower,commands,C|         This command allows you to disable any one of the above features
+4Tpower,commands,C|         for the specified player.
+4Tpower,commands,D|/D       Delete password from database for player.  /D<name>
+4Tpower,commands,E|/E       Enable password for player.  /E<name>=<password>
+4Tpower,commands,F|/F       /F# <action>   Action may be any command that the specified player
+4Tpower,commands,F|         can execute.  The player will be forced to perform the action.
+4Tpower,commands,i|/i[#]    With no number, send a global fake message.  With number,
+4Tpower,commands,i|         send a private fake message.
+3Tpower,commands,k|/k       Disconnect player.  /k#
+4Tpower,commands,K|/K       Disconnect all players less than level 4.
+3Tpower,commands,l|/l       (dis)allow viewing of level.  Toggle.  When set, an operator's
+3Tpower,commands,l|         level can be viewed by everyone.  When clear, the operator's level
+3Tpower,commands,l|         cannot be seen by anyone.
+3Tpower,commands,M|/M       Change the main channel name.  /M<name>
+4Tpower,commands,Mo|/Mo[#]   Change the maximum number of connections.
+4Tpower,commands,Mo|         With no number, change to the default max.
+4Tpower,commands,Purgelog|         Purges the log.
+Tpower,commands,o,doing,hostname|/o       Change apparent host name.  Changing other's hostnames is not
+Tpower,commands,o,doing,hostname|         allowed.  (May be restricted to level 3 or above) /o<host>
+4Tpower,commands,plev|/plev    Print passwords.
+4Tpower,commands,shutdown|/shutdown Shuts down the haven.
+B|Use /q to quit.

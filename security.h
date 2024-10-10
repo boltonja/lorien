@@ -1,0 +1,52 @@
+/*
+ * Copyright 1990-1996 Chris Eleveld
+ * Copyright 1992 Robert Slaven
+ * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-1995 David P. Mott
+ *
+ * The BSD 2-Clause License
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     1. Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *     2. Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* security.h ---  keep this for yourself.  it's got passwords.
+ */
+
+#define P_SHUTDOWN     passwds[NUMLVL]
+#define P_COMMANDS     passwds[NUMLVL + 1]
+#define P_FLUSH_ERR    "flushme"
+
+#define MAX_POWER_PASS 20
+
+static char passwds[NUMLVL + 2][MAX_POWER_PASS] = { "level0", "level1",
+	"level2", "level3", "level4", "level5", "BRING_IT_DOWN",
+	"defaultcmds" };
+
+/* need six, plus one for shutdown. */
+
+int changelevel(char *password, struct splayer *pplayer);
+parse_error haven_shutdown(struct splayer *pplayer);
+void init_read_powerfile(void);
+int printlevels(struct splayer *pplayer);
