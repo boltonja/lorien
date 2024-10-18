@@ -137,6 +137,12 @@ setmain(struct splayer *pplayer, char *buf)
 		sendtoplayer(pplayer, ">> Invalid command syntax.\r\n");
 		return PARSERR_SUPPRESS;
 	} else {
+		if (findchannel(buf)) {
+			snprintf(sendbuf, sizeof(sendbuf),
+				 ">> channel %s already exists.\r\n", buf);
+			sendtoplayer(pplayer, sendbuf);
+			return PARSERR_SUPPRESS;
+		}
 		strncpy(channels->name, buf, MAX_CHAN);
 		channels->name[MAX_CHAN - 1] = 0;
 		snprintf(sendbuf, sizeof(sendbuf),
