@@ -137,10 +137,18 @@ utility.h           - Defines used by utility.c
 
 IV.  Installation.
 
-Simply get into the Lorien directory and type 'make'. You probably
-also want to create files called lorien.power, lorien.welcome, and
-lorien.db; and you will want to secure them. A suggested set of
-commands to do this:
+Simply cd into the Lorien directory and type:
+
+       make 
+
+For OpenSolaris-derived systems (Illumos, eg. OpenIndiana) you will want:
+
+       export LIBS="-lc -lnsl -lsocket"
+       make
+
+You probably also want to create files called lorien.power,
+lorien.welcome, and lorien.db; and you will want to secure them. A
+suggested set of commands to do this:
 
 	make secure
 
@@ -151,10 +159,6 @@ objects are protected from tampering.  The lorien.welcome is an
 You should also edit the lorien.power file as described below, and
 keep copies of lorien.power, lorien.db, and lorien.welcome so they
 don't get overwritten by future downloads.
-
-Launch with one of the following commands:
-       lorien 2525 # run in the foreground
-       lorien -d 2525 # run in the background
 
 You should edit the file lorien.power to set the passwords.  This file
 is read every time Lorien starts and contains, in order, the level 0
@@ -171,6 +175,10 @@ lev4
 lev5
 shutup
 ---CUT HERE---
+
+Launch with one of the following commands:
+       lorien 2525 # run in the foreground
+       lorien -d 2525 # run in the background
 
 V.  New Features
 

@@ -79,10 +79,11 @@ SRC= ban.c chat.c commands.c files.c help.c journal.c log.c lorien.c newpass.c n
 
 OBJ= ban.o chat.o commands.o files.o help.o journal.o log.o lorien.o newpass.o newplayer.o parse.o prefs.o ring.o security.o servsock.o trie.o utility.o
 
-LIBS=-lc
+# Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
+LIBS?=-lc
 DEFS=-DPOSIX -DUSE_32_BIT_TIME_T
 
-CC=gcc
+CC?=gcc
 DEBUG=-g -ggdb
 FLAGS=$(DEBUG) $(DEFS) $(OPTS) -fstack-protector-all -Wall
 BINARY=lorien
