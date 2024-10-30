@@ -61,6 +61,30 @@ struct splayer *players; /* the linked list of players records */
 chan *channels;
 int numconnect; /* number of people connected */
 
+char *player_flags_names[16] = { "Showlevel", "Verified", "Whisper Beeps",
+	"Connection Messages", "Hushed", "Whisper Echoes", "Leaving", "Wrap",
+	".i Messages", "Yell Mode (Screaming)", "Spamming", "ERROR! 11", NULL,
+	NULL, NULL, NULL };
+
+char *player_privs_names[16] = {
+	"Yell",
+	"Whisper",
+	"Set own name",
+	"Change channel",
+	"Quit",
+	"Use capital letters",
+	"Play",
+	"Post Bulletins",
+	"ERROR! 8",
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+};
+
 int
 numconnected()
 {
@@ -96,7 +120,8 @@ initplayerstruct(void)
 	}
 
 	channels->next = (chan *)0;
-	strcpy(channels->name, DEFCHAN);
+	strncpy(channels->name, DEFCHAN, sizeof(channels->name) - 1);
+	channels->name[sizeof(channels->name) - 1] = (char)0;
 	channels->secure = 0;
 	channels->count = 0;
 	channels->visited = 0;
@@ -125,7 +150,7 @@ chan *curr;
 	rc = checkchannels(curr->next);
 #ifdef FIX_CHANNEL_LINKS
 	if (!rc) {
-		curr->next = (chan) * 0;
+		curr->next = (chan)*0;
 		rc = 1;
 	}
 #endif
@@ -325,10 +350,29 @@ new_channelp(char *channel)
 	return thechan;
 }
 
-int
-blocking(struct splayer *who)
+void
+playerinit(struct splayer *who, time_t when, char *where, char *numwhere)
 {
-	return (ban_findsite(who->host) ? 1 : 0);
+	strcpy(who->onfrom, where);
+	strcpy(who->host, where);
+	strcpy(who->numhost, numwhere);
+	who->flags = PLAYER_DEFAULT;
+	who->port = players->port;
+	who->seclevel = BABYCO;
+	who->hilite = 0;
+	who->chnl = NULL;
+	strncpy(who->name, DEFAULT_NAME, MAX_NAME);
+	who->name[MAX_NAME - 1] = (char)0;
+	who->playerwhen = when;
+	who->idle = when;
+	who->cameon = when;
+	who->next = (struct splayer *)0;
+	who->privs = CANDEFAULT;
+	who->dotspeeddial = 0;
+	who->wrap = 80;
+	who->spamming = 0;
+	FD_ZERO(&who->gags);
+	memset(who->pbuf, 0, sizeof(who->pbuf));
 }
 
 int
@@ -337,6 +381,11 @@ newplayer(int s)
 	int sock;
 	struct splayer *buf;
 	time_t tmptime;
+
+	sock = acceptcon(s, players->host, sizeof(players->host),
+	    players->numhost, sizeof(players->numhost), &players->port);
+	if (sock < 0)
+		return (-1);
 
 	/* find the tail of the linked list of players */
 
@@ -353,11 +402,6 @@ newplayer(int s)
 		 * and dump the incoming call because we're out of memory.
 		 */
 
-		sock = acceptcon(s, players->host, sizeof(players->host),
-		    players->numhost, sizeof(players->numhost), &players->port);
-		if (sock < 0)
-			return -1;
-
 		snprintf(sendbuf, sizeof(sendbuf),
 		    ">> Unable to allocate memory for player record.\r\n");
 		(void)outtosock(sock, sendbuf);
@@ -370,58 +414,10 @@ newplayer(int s)
 	buf->next->next = (struct splayer *)0;
 	buf->next->prev = buf;
 
-	sock = acceptcon(s, players->host, sizeof(players->host),
-	    players->numhost, sizeof(players->numhost), &players->port);
-	if (sock < 0)
-		return (-1);
-
-	/* Trust me it's 3 here and 4 there --- Jillian */
-
-	if ((numconnected() + 1) >= (MAXCONN - 3)) {
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> All %lu connections are full.\r\n", MAXCONN - 4);
-		outtosock(sock, sendbuf);
-		(void)close(sock);
-		free(buf->next);
-		buf->next = (struct splayer *)0;
-		return -1;
-	}
-
-	if (blocking(players)) {
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> I'm sorry.  Someone at your site has angered the administrator.\r\nYour site is blocked.\r\nPlease try again later when the administrator isn't so angry.\r\n");
-
-		outtosock(sock, sendbuf);
-		(void)close(sock);
-		free(buf->next);
-		buf->next = (struct splayer *)0;
-		return -1;
-	}
-
 	tmptime = time((time_t *)0);
 	buf = buf->next;
-	strcpy(buf->onfrom, players->host);
-	strcpy(buf->host, players->host);
-	strcpy(buf->numhost, players->numhost);
-	buf->flags = PLAYER_DEFAULT;
-	buf->port = players->port;
-	buf->seclevel = BABYCO;
-	buf->hilite = 0;
-	buf->chnl = NULL;
+	playerinit(buf, tmptime, players->host, players->numhost);
 	buf->s = sock;
-	strncpy(buf->name, DEFAULT_NAME, MAX_NAME);
-	buf->name[MAX_NAME - 1] = (char)0;
-	buf->idle = tmptime;
-	buf->cameon = tmptime;
-	buf->next = (struct splayer *)0;
-	buf->privs = CANDEFAULT;
-	buf->dotspeeddial = 0;
-	buf->wrap = 80;
-#ifdef ANTISPAM
-	buf->spamming = 0;
-#endif
-	FD_ZERO(&buf->gags);
-	memset(buf->pbuf, 0, sizeof(buf->pbuf));
 
 #ifndef NO_LOG_CONNECT
 	snprintf(sendbuf, sizeof(sendbuf),
@@ -657,7 +653,7 @@ removeplayer(struct splayer *player)
 }
 
 char *
-idlet(long idle)
+idlet(time_t idle)
 {
 	return timelet(idle, 2);
 }

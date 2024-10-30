@@ -43,7 +43,7 @@ extern int numconnect;
 
 chan *findchannel(char *name);
 void handleinput(fd_set needread);
-char *idlet(long idle);
+char *idlet(time_t idle);
 void initplayerstruct(void);
 int isgagged(struct splayer *who, int line);
 struct splayer *lookup(int linenum);
@@ -51,6 +51,7 @@ chan *newchannel(char *name);
 int newplayer(int s);
 chan *new_channelp(char *channel);
 int numconnected();
+void playerinit(struct splayer *who, time_t when, char *where, char *numwhere);
 void processinput(struct splayer *pplayer);
 int recvfromplayer(struct splayer *who, char *data, int howmuch);
 void remove_channel(chan *channel);

@@ -45,15 +45,14 @@ Dave Mott          (Energizer Rabbit)
 
 #include "ban.h"
 #include "commands.h"
+#include "db.h"
 #include "files.h"
 #include "help.h"
 #include "log.h"
 #include "lorien.h"
-#include "newpass.h"
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
-#include "prefs.h"
 #include "security.h"
 #include "utility.h"
 
@@ -77,6 +76,7 @@ struct parse_key default_parse_table[] = {
 	{ "/Main", CMD_SETMAIN },
 	{ "/ModifyMAXCONN", CMD_SETMAX },
 	{ "/ModPlayer", CMD_MODPLAYER },
+	{ "/P", CMD_PASSWORD },
 	{ "/Parser", CMD_PARSER },
 	{ "/Password", CMD_PASSWORD },
 	{ "/Purgelog", CMD_PURGELOG },
@@ -139,7 +139,7 @@ setmain(struct splayer *pplayer, char *buf)
 	} else {
 		if (findchannel(buf)) {
 			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> channel %s already exists.\r\n", buf);
+			    ">> channel %s already exists.\r\n", buf);
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
@@ -162,9 +162,7 @@ modPlayer(struct splayer *pplayer, char *buf)
 	int correctargs = 0;
 	struct splayer prefs;
 	struct splayer *tplayer = NULL;
-	struct prefs_index *idxp = NULL;
-	int status, rc;
-	size_t matched = 0;
+	int rc;
 
 	strncpy(lbuf, buf, sizeof(lbuf));
 	lbuf[BUFSIZE - 1] = (char)0;
@@ -190,51 +188,30 @@ modPlayer(struct splayer *pplayer, char *buf)
 		return PARSERR_NUMARGS;
 	}
 
-	rc = prefs_cache_find(&lorien_db_cache, name, &prefs, &status);
+	snprintf(sendbuf, sizeof(sendbuf), ">> Modifying %s for %s to %s\r\n",
+	    element, name, value);
+	sendtoplayer(pplayer, sendbuf);
 
-	if (rc == -1) {
+	rc = ldb_player_get(&lorien_db, name, strlen(name), &prefs);
+
+	if (rc == MDB_NOTFOUND) {
 		snprintf(sendbuf, sizeof(sendbuf),
 		    ">> Player %s is not registered.\r\n", name);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
-	} else if (rc < -1) {
-		sendtoplayer(pplayer,
-		    ">> Preferences database could not be read.\r\n");
+	} else if (rc != 0) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> Error %d: Player database unreadable.\r\n", rc);
+		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
 
 	/* is target player logged on? */
-	for (tplayer = players->next; tplayer; tplayer++)
+	for (tplayer = players->next; tplayer; tplayer = tplayer->next)
 		if (!strcmp(tplayer->name, name) && PLAYER_HAS(VRFY, pplayer))
 			break;
 
-	/* should we consider not permitting people to use registered names
-	 * without logging in successfully?
-	 * if no logged-on (verified) players are in code, tplayer will be NULL
-	 */
-
-	idxp = NULL;
-	if (lorien_db_cache.state & PC_INDEX_VALID) {
-		trie *t = trie_match(lorien_db_cache.index,
-		    (unsigned char *)name, &matched, trie_keymatch_exact);
-		if (t)
-			idxp = t->payload;
-	}
-
-	if (tplayer && (tplayer->dboffset != prefs.dboffset)) { /* paranoia */
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Player %s in-core record offset doesn't match\r\n",
-		    name);
-		sendtoplayer(pplayer, sendbuf);
-		return PARSERR_SUPPRESS;
-	}
-	if (idxp && (idxp->dboffset != prefs.dboffset)) { /* more paranoia */
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Player %s cached offset doesn't match\r\n", name);
-		sendtoplayer(pplayer, sendbuf);
-		return PARSERR_SUPPRESS;
-	}
-
+	/* if target player is not logged on (verified) tplayer will be NULL */
 	switch (*element) {
 	case 's': /* seclevel */
 		if (pplayer->seclevel >
@@ -257,15 +234,14 @@ modPlayer(struct splayer *pplayer, char *buf)
 		break;
 		if (pplayer->seclevel >
 		    ((tplayer) ? tplayer->seclevel : prefs.seclevel)) {
-			prefs.seclevel = atoi(value);
+			strncpy(prefs.password, value,
+			    sizeof(prefs.password) - 1);
+			prefs.password[sizeof(prefs.password) - 1] = (char)0;
 			if (strlen(value) < MAX_PASS) {
-				if (tplayer) /* if logged in, make in-core match
-					      */
+				/* if logged in, make in-core match */
+				if (tplayer)
 					strcpy(tplayer->password, value);
 				strcpy(prefs.password, value);
-				if (idxp)
-					strcpy(idxp->password,
-					    value); /* update cached entry */
 			} else {
 				snprintf(sendbuf, sizeof(sendbuf),
 				    ">> %s is longer than %d characters\n",
@@ -278,15 +254,18 @@ modPlayer(struct splayer *pplayer, char *buf)
 		return PARSERR_AMBIGUOUS;
 	}
 
-	/* prefs write */
-	rc = prefs_cache_write(pplayer, &lorien_db_cache, &prefs, &status);
+	rc = ldb_player_put(&lorien_db, &prefs, false);
 
-	if (rc == -1) {
+	if (rc != 0) {
 		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Can't write record for %s\n", name);
+		    ">> Error %d: Can't write record for %s\n", rc, name);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
+
+	snprintf(sendbuf, sizeof(sendbuf), ">> %s for %s set to %s\r\n",
+	    element, name, value);
+	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
 
@@ -325,19 +304,55 @@ setmax(struct splayer *pplayer, char *buf)
 parse_error
 enablePassword(struct splayer *pplayer, char *buf)
 {
-	parse_error rc = PARSERR_SUPPRESS;
+	struct splayer *tplayer;
+	struct splayer newplayer = { 0 };
+	int rc;
 
-	if (!enablepass(buf)) {
+	char *pword = strchr(buf, '=');
+	if (pword == (char *)0) {
 		snprintf(sendbuf, sizeof(sendbuf), IVCMD_SYN);
-	} else {
+		sendtoplayer(pplayer, sendbuf);
+		return PARSERR_SUPPRESS;
+	}
+	*pword++ = (char)0;
+
+	/* is target player logged on? */
+	for (tplayer = players->next; tplayer; tplayer = tplayer->next)
+		if (!strcmp(tplayer->name, buf) && PLAYER_HAS(VRFY, pplayer))
+			break;
+
+	if (!tplayer) {
+		tplayer = &newplayer;
+		/* BUG: we don't know where the new player will log on from
+		 * but 0.0.0.0 is impossible. We could change the player login
+		 * code to detect this and update the record with the info from
+		 * the first host they log in from
+		 */
+		playerinit(tplayer, time((time_t *)0), "0.0.0.0", "0.0.0.0");
+		strncpy(tplayer->name, buf, sizeof(tplayer->name) - 1);
+		tplayer->name[sizeof(tplayer->name) - 1] = (char)0;
+	}
+
+	/* BUG: use libssl to encrypt this */
+	strncpy(tplayer->password, pword, sizeof(tplayer->password) - 1);
+	tplayer->password[sizeof(tplayer->password) - 1] = (char)0;
+
+	rc = ldb_player_put(&lorien_db, tplayer, true); /* no overwrite */
+	if (rc != 0) {
 		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Password enabled for player.\r\n");
-		PLAYER_SET(VRFY, pplayer);
-		rc = PARSE_OK;
-	};
+		    ">> Error %d: cannot create new player\r\n", rc);
+		sendtoplayer(pplayer, sendbuf);
+		return PARSERR_SUPPRESS;
+	}
+
+	PLAYER_SET(VRFY, tplayer);
+	snprintf(sendbuf, sizeof(sendbuf),
+	    ">> Password enabled for player.\r\n");
+
 	sendtoplayer(pplayer, sendbuf);
 
-	return rc;
+	return PARSE_OK;
+	;
 }
 
 parse_error
@@ -359,21 +374,58 @@ bulletin_post(struct splayer *pplayer, char *buf)
 }
 
 parse_error
-changePassword(struct splayer *pplayer, char *buf)
+changePlayer(struct splayer *pplayer, char *buf)
 {
+	char *newpass = strchr(buf, '=');
 	parse_error rc = PARSERR_SUPPRESS;
+	struct splayer cplayer;
 
 	if (!PLAYER_HAS(VRFY, pplayer)) {
 		snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
-	} else {
-		if (!newpass(pplayer->name, buf)) {
-			snprintf(sendbuf, sizeof(sendbuf), IVCMD_SYN);
-		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> Password changed on Lorien.\r\n");
-			rc = PARSE_OK;
-		};
-	};
+		goto out;
+	}
+
+	/* If new pass not specified, save updated player record */
+	if (newpass != NULL)
+		*newpass++ = (char)0;
+
+	buf = skipspace(buf);
+
+	if (strcmp(buf, pplayer->password)) {
+		rc = PARSERR_SUPPRESS;
+		strncpy(sendbuf,
+		    ">> Usage: /Poldpass[=newpass], newpass optional\r\n",
+		    sizeof(sendbuf) - 1);
+		sendbuf[sizeof(sendbuf) - 1] = (char)0;
+		goto out;
+	}
+
+	memcpy(&cplayer, pplayer, sizeof(cplayer));
+	if (newpass) {
+		strncpy(cplayer.password, newpass,
+		    sizeof(cplayer.password) - 1);
+		cplayer.password[sizeof(cplayer.password) - 1] = (char)0;
+	}
+
+	rc = ldb_player_put(&lorien_db, &cplayer, false); /* overwrite */
+	if (rc != 0) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    (newpass) ? ">> Error %d, cannot update player db" :
+				">> Error %d, password NOT changed",
+		    rc);
+		rc = PARSERR_SUPPRESS;
+		goto out;
+	}
+
+	if (newpass) {
+		strncpy(pplayer->password, newpass,
+		    sizeof(pplayer->password) - 1);
+		pplayer->password[sizeof(pplayer->password) - 1] = (char)0;
+	}
+
+	snprintf(sendbuf, sizeof(sendbuf), ">> Player record updated.\r\n");
+
+out:
 	sendtoplayer(pplayer, sendbuf);
 	return rc;
 }
@@ -381,17 +433,35 @@ changePassword(struct splayer *pplayer, char *buf)
 parse_error
 delete_player(struct splayer *pplayer, char *buf)
 {
-	parse_error rc = PARSERR_SUPPRESS;
+	struct splayer *tplayer;
+	struct splayer delplayer = { 0 };
+	int rc;
 
-	if (pfree(buf)) {
-		passwrite();
+	/* is target player logged on? */
+	for (tplayer = players->next; tplayer; tplayer = tplayer->next)
+		if (!strcmp(tplayer->name, buf) && PLAYER_HAS(VRFY, pplayer))
+			break;
+
+	if (!tplayer) {
+		tplayer = &delplayer;
+		strncpy(tplayer->name, buf, sizeof(tplayer->name) - 1);
+		tplayer->name[sizeof(tplayer->name) - 1] = (char)0;
+	}
+
+	rc = ldb_player_delete(&lorien_db, tplayer);
+	if (rc != 0) {
 		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Player deleted from database.\r\n");
-		rc = PARSE_OK;
-	} else {
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Name not found in database.\r\n");
-	};
+		    ">> Error %d, can't delete player.\r\n", rc);
+		rc = PARSERR_SUPPRESS;
+		goto out;
+	}
+
+	PLAYER_CLR(VRFY, tplayer);
+	snprintf(sendbuf, sizeof(sendbuf),
+	    ">> Player deleted from database.\r\n");
+	rc = PARSE_OK;
+
+out:
 	sendtoplayer(pplayer, sendbuf);
 	return rc;
 }
@@ -400,7 +470,9 @@ parse_error
 set_name(struct splayer *pplayer, char *buf)
 {
 	char *buf2;
-	struct p_word pstruct;
+	struct splayer rplayer = { 0 };
+	int rc;
+	bool newconn = !(pplayer->privs & CANPLAY);
 
 	if (!(pplayer->privs & CANNAME)) {
 		sendtoplayer(pplayer, NO_PERM);
@@ -409,66 +481,90 @@ set_name(struct splayer *pplayer, char *buf)
 	buf = (char *)skipspace(buf);
 	buf2 = strchr(buf, '=');
 
-#ifdef PASSWORDS_ENABLED
-	if (buf2 != (char *)0) {
-		buf2[0] = 0x0;
-		buf2++;
-		strncpy(pstruct.name, buf, MAX_NAME - 1);
-		if (!plookup(&pstruct)) {
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> Name not found in database.\r\n");
-			sendtoplayer(pplayer, sendbuf);
-		} else {
-			if (strcmp(pstruct.pword, buf2)) {
-				snprintf(sendbuf, sizeof(sendbuf),
-				    ">> Invalid password.\r\n");
-				sendtoplayer(pplayer, sendbuf);
-			} else {
-				PLAYER_SET(VRFY, pplayer);
-				setname(pplayer->s, buf);
-				snprintf(sendbuf, sizeof(sendbuf),
-				    ">> Name changed.\r\n");
-				sendtoplayer(pplayer, sendbuf);
+	if (buf2 != (char *)0)
+		*buf2++ = (char)0;
 
-				if (!(pplayer->privs & CANPLAY)) {
-					/* let everyone else know who's here. */
-					snprintf(sendbuf, sizeof(sendbuf),
-					    ">> New arrival on line %d from %s.\r\n",
-					    pplayer->s, pplayer->host);
-					sendall(sendbuf, ARRIVAL, 0);
-					pplayer->privs |= CANPLAY;
-					pplayer->chnl = channels;
-					channels->count++;
-				};
-			};
-		};
-	} else {
-		strncpy(pstruct.name, buf, MAX_NAME - 1);
-		if (!plookup(&pstruct)) {
-#endif
-			setname(pplayer->s, buf);
-			PLAYER_CLR(VRFY, pplayer);
+	rc = ldb_player_get(&lorien_db, buf,
+	    strnlen(buf, sizeof(pplayer->name) - 1), &rplayer);
+
+	/* player not in db but password supplied */
+	if ((rc != 0) && buf2) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> Name not found in database.\r\n");
+		sendtoplayer(pplayer, sendbuf);
+		return PARSERR_SUPPRESS;
+	}
+
+	/* player in db but no password supplied */
+	if ((rc == 0) && !buf2) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> That name is reserved.  Please use another.\r\n");
+		sendtoplayer(pplayer, sendbuf);
+		return PARSERR_SUPPRESS;
+	}
+
+	/* player in db and password supplied */
+	if ((rc == 0) && buf2) {
+		if (strncmp(rplayer.password, buf2,
+			sizeof(rplayer.password) - 1)) {
 			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> Name changed.\r\n");
+			    ">> Invalid password.\r\n");
 			sendtoplayer(pplayer, sendbuf);
-			if (!(pplayer->privs & CANPLAY)) {
-				/* let everyone else know who's here. */
-				snprintf(sendbuf, sizeof(sendbuf),
-				    ">> New arrival on line %d from %s.\r\n",
-				    pplayer->s, pplayer->host);
-				sendall(sendbuf, ARRIVAL, 0);
-				pplayer->privs |= CANPLAY;
-				pplayer->chnl = channels;
-				channels->count++;
-			};
-#ifdef PASSWORDS_ENABLED
-		} else {
+			return PARSERR_SUPPRESS;
+		}
+
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> Last login %s ago from %s\r\n", idlet(rplayer.cameon),
+		    rplayer.host);
+		sendtoplayer(pplayer, sendbuf);
+
+		/* update last login info in db */
+		strncpy(rplayer.host, pplayer->host, sizeof(rplayer.host) - 1);
+		rplayer.host[sizeof(rplayer.host) - 1] = (char)0;
+		rplayer.cameon = time((time_t *)0);
+
+		rc = ldb_player_put(&lorien_db, &rplayer, false);
+		if (rc != 0) {
 			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> That name is reserved.  Please use another.\r\n");
+			    ">> Error %d. Cannot update login time\r\n", rc);
 			sendtoplayer(pplayer, sendbuf);
-		};
-	};
-#endif
+		}
+
+		strncpy(pplayer->name, rplayer.name, sizeof(pplayer->name) - 1);
+		pplayer->name[sizeof(pplayer->name) - 1] = (char)0;
+		strncpy(pplayer->password, rplayer.password,
+		    sizeof(pplayer->password) - 1);
+		pplayer->password[sizeof(pplayer->password) - 1] = (char)0;
+		pplayer->seclevel = rplayer.seclevel;
+		pplayer->hilite = rplayer.hilite;
+		pplayer->privs =
+		    rplayer.privs; /* do we need to persist this? */
+		pplayer->wrap = rplayer.wrap;
+		pplayer->flags = rplayer.flags;
+		pplayer->pagelen = rplayer.pagelen; /* BUG: not implemented */
+		pplayer->playerwhen = rplayer.playerwhen;
+		pplayer->cameon = rplayer.cameon;
+		PLAYER_SET(VRFY, pplayer);
+	} else { /* player not in db and no password supplied */
+		setname(pplayer->s, buf);
+		snprintf(sendbuf, sizeof(sendbuf), ">> Name changed.\r\n");
+		sendtoplayer(pplayer, sendbuf);
+		PLAYER_CLR(VRFY, pplayer); /* new name is unverified */
+	}
+
+	/* set this flag whenever anyone successfully sets their name */
+	pplayer->privs |= CANPLAY;
+
+	if (newconn) {
+		/* let everyone else know who's here. */
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> New arrival on line %d from %s.\r\n", pplayer->s,
+		    pplayer->host);
+		sendall(sendbuf, ARRIVAL, 0);
+		pplayer->chnl = channels;
+		channels->count++;
+	}
+
 	return PARSE_OK;
 }
 
@@ -1626,7 +1722,6 @@ add_channel(struct splayer *pplayer, char *buf)
 void
 prelogon(struct splayer *pplayer, char *buf)
 {
-#ifdef ANTISPAM
 	if (pplayer->spamming) {
 		if (!strcmp(buf, ".")) {
 			snprintf(sendbuf, sizeof(sendbuf),
@@ -1635,9 +1730,7 @@ prelogon(struct splayer *pplayer, char *buf)
 			pplayer->spamming = 0;
 		} else
 			; /* NULL */
-	} else
-#endif
-	{
+	} else {
 		if (!strncmp(buf, ".q", 2) || !strncmp(buf, "/q", 2)) {
 			playerquit(pplayer, ++buf);
 		} else {
@@ -1645,7 +1738,6 @@ prelogon(struct splayer *pplayer, char *buf)
 				buf++;
 
 			switch (*(buf)) {
-#ifdef ANTISPAM
 			case 'E':
 			case 'H':
 				snprintf(sendbuf, sizeof(sendbuf),
@@ -1673,7 +1765,6 @@ prelogon(struct splayer *pplayer, char *buf)
 				sendtoplayer(pplayer, sendbuf);
 				return;
 				break;
-#endif
 			case 'n':
 				set_name(pplayer, buf + 1);
 				break;
@@ -1729,7 +1820,7 @@ struct command commands[] = { CMD_DECLS(CMD_ADDCHANNEL, 0, 2, COSYSOP,
 	CMD_DECLS(CMD_MODPLAYER, 0, 2, SUPREME, modPlayer),
 	CMD_DECL(CMD_NAME, 0, 2, set_name),
 	CMD_DECLS(CMD_PARSER, 0, 2, SUPREME, install_parser_from_file),
-	CMD_DECL(CMD_PASSWORD, 0, 2, changePassword),
+	CMD_DECL(CMD_PASSWORD, 0, 2, changePlayer),
 	CMD_DECL(CMD_POSE, 0, 2, pose_it),
 	CMD_DECL(CMD_POST, 0, 2, bulletin_post),
 	CMD_DECLS(CMD_PRINTPOWER, 0, 1, ARCHMAGE, printlevels),
@@ -1863,8 +1954,8 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		/* copy the key that will be used for command text */
 		memset(key, 0, sizeof(key));
 		for (tp = &key[0];
-		    *cp && *cp != ' ' && tp - &key[0] < sizeof(key);
-		    *tp++ = *cp++) /* EMPTY */
+		     *cp && *cp != ' ' && tp - &key[0] < sizeof(key);
+		     *tp++ = *cp++) /* EMPTY */
 			;
 
 		/* is there a corresponding command name supplied?
@@ -1874,8 +1965,8 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		    *(cp = skipspace(cp))) {
 			memset(command, 0, sizeof(command));
 			for (tp = &command[0]; *cp && *cp != ' ' &&
-			    tp - &command[0] < sizeof(command);
-			    *tp++ = *cp++) /* EMPTY */
+			     tp - &command[0] < sizeof(command);
+			     *tp++ = *cp++) /* EMPTY */
 				;
 		} else {
 			snprintf(sendbuf, sizeof(sendbuf),
@@ -1959,11 +2050,6 @@ handlecommand(struct splayer *pplayer, char *command)
 
 	buf = command;
 
-	/* BUG: this probably doesn't need to be done every time a command is
-	 * processed */
-	passread();
-	/* passopen(); */ /* set up password file. */
-
 	if (!(pplayer->privs & CANPLAY)) {
 		prelogon(pplayer, command); /* hasn't set name yet */
 	} else {
@@ -1974,7 +2060,7 @@ handlecommand(struct splayer *pplayer, char *command)
 			if (!parser_init_context(&default_parser_context,
 				default_parse_table, commands, 0)) {
 				log_msg("can't allocate parse context\n");
-				die(ENOMEM);
+				exit(ENOMEM);
 			}
 			main_parser_context = &default_parser_context;
 		}

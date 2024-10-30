@@ -134,8 +134,10 @@ ban_add(char *s)
 		bantail->next = curr;
 	}
 
-	if (curr)
-		strcpy(curr->site, s);
+	if (curr) {
+		strncpy(curr->site, s, sizeof(curr->site) - 1);
+		curr->site[sizeof(curr->site) - 1] = 0;
+	}
 
 	return (curr) ? 1 : 0;
 }

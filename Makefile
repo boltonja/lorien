@@ -47,21 +47,15 @@
 # NO_LOG_CONNECT       By default, arrivals and departures are not logged.
 # NO_NUMBER_CHANNELS   To disallow numeric channel names.  Default: allowed.
 # ONFROM_ANY           If defined, anyone can change host info.
-# PASSWORDS_ENABLED    This is enabled by default.  For name protection.
 # USE_SHUTDOWN_COMMAND Enables use of .shutdown by level 3+.  Default: on.
 # USE_CONFIG_H         If you can't use DEFAULT_NAME and DEFCHAN in the
 #                      makefile because your shell doesn't allow it, define
 #                      this and edit config.h to your liking. 
 # SKIP_HOSTLOOKUP      Skips the host lookups when a player connects.
-# ANTISPAM             Adds detection and logging of attempts to relay spam.
-# USE_32_BIT_TIME_T    The time_t data type is 32 bits on this system
-# USE_64_BIT_TIME_T    The time_t data type is 64 bits on this system
-# (note:  you must define one of USE_32_BIT_TIME_T or USE_64_BIT_TIME_T, 
-#         and it must be correct for prefdb compatibility!!!)
 #
 # EDIT THIS LINE FOR OPTIONS. YOU MUST ALWAYS ENABLE -DLORIEN
 #
-OPTS= -DLORIEN -DPASSWORDS_ENABLED -DLOG -DNO_LOG_CONNECT -DUSE_SHUTDOWN_COMMAND -DUSE_CONFIG_H  -DONFROM_ANY -DANTISPAM 
+OPTS= -DLORIEN -DLOG -DNO_LOG_CONNECT -DUSE_SHUTDOWN_COMMAND -DUSE_CONFIG_H  -DONFROM_ANY
 #
 # Don't mess with these unless you have good reason to.
 # Keep reading however because the LIBS and DEFS may need to be changed below.
@@ -69,30 +63,28 @@ OPTS= -DLORIEN -DPASSWORDS_ENABLED -DLOG -DNO_LOG_CONNECT -DUSE_SHUTDOWN_COMMAND
 
 DOC=LICENSE README CHANGELOG aprilfools.commands lorien.commands lorien.help lorien.welcome tfsurvival-3p0.txt sockets.doc
 
-SECRETS=lorien.db lorien.pass lorien.power
+# Don't put lorien.db here or the lmdb layer won't be able to create it
+SECRETS=lorien.power
 
 MAK=.clang-format CMakeLists.txt Makefile
 
-HDR= ban.h chat.h commands.h config.h files.h help.h journal.h log.h lorien.h newpass.h newplayer.h parse.h platform.h prefs.h ring.h security.h servsock.h trie.h utility.h
+HDR= ban.h chat.h commands.h config.h db.h files.h help.h journal.h log.h lorien.h newplayer.h parse.h platform.h ring.h security.h servsock.h trie.h utility.h
 
-SRC= ban.c chat.c commands.c files.c help.c journal.c log.c lorien.c newpass.c newplayer.c parse.c prefs.c ring.c security.c servsock.c trie.c utility.c
+SRC= ban.c chat.c commands.c db.c files.c help.c dbtool.c journal.c log.c lorien.c newplayer.c parse.c ring.c security.c servsock.c trie.c utility.c
 
-OBJ= ban.o chat.o commands.o files.o help.o journal.o log.o lorien.o newpass.o newplayer.o parse.o prefs.o ring.o security.o servsock.o trie.o utility.o
+MAIN= lorien.o
+
+OBJ= ban.o chat.o commands.o db.o files.o help.o journal.o log.o newplayer.o parse.o ring.o security.o servsock.o trie.o utility.o
 
 # Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
-LIBS?=-lc
-DEFS=-DPOSIX -DUSE_32_BIT_TIME_T
+LIBS?=-lc -L /usr/local/lib -llmdb
+CFLAGS?=
 
 CC?=gcc
 DEBUG=-g -ggdb
-FLAGS=$(DEBUG) $(DEFS) $(OPTS) -fstack-protector-all -Wall
+FLAGS=$(DEBUG) $(CFLAGS) $(OPTS) -fstack-protector-all -Wall -I/usr/local/include
 BINARY=lorien
-TARGETS=testring testtrie testhelp testiconv convprefs $(BINARY)
-TARGETS=testring testtrie testhelp convprefs $(BINARY)
-#
-#	for parallelisms:
-#
-P=
+TARGETS=testring testtrie testhelp $(BINARY) dbtool
 
 default: $(TARGETS)
 
@@ -101,18 +93,13 @@ all: $(TARGETS)
 server: $(BINARY)
 
 clean:
-	rm -f $(OBJ) lorien.log getmax maxconn.h core $(TARGETS)
+	rm -f $(OBJ) lorien.log maxconn.h core $(TARGETS) $(MAIN)
 
 lint:
 	lint $(SRC) $(HDR) $(LIB)
 
-getmax: 
-	$(CC) $(FLAGS) -o getmax getmax.c $(LIBS)
-	./getmax | sed 's/.*= \([1-90].*\)\./\#define MAXCONN \1/' > maxconn.h
-
-$(BINARY): $(P) $(OBJ) 
-	rm -f getmax maxconn.h
-	$(CC) $(FLAGS) -o $(BINARY) $(OBJ) $(LIBS)
+$(BINARY): $(OBJ) $(MAIN)
+	$(CC) $(FLAGS) -o $(BINARY) $(OBJ) $(LIBS) $(MAIN)
 
 testhelp: help.c 
 	$(CC) -DTESTHELP $(DEBUG) $(FLAGS) -o testhelp help.c $(LIBS)
@@ -123,11 +110,8 @@ testring: ring.c ring.h
 testtrie: trie.c trie.h
 	$(CC) -DTESTTRIE $(DEBUG) $(FLAGS) -o testtrie trie.c $(LIBS)
 
-testiconv: testiconv.c rfc2066.h
-	$(CC) -DTESTICONV $(DEBUG) $(FLAGS) -o testiconv testiconv.c $(LIBS) $(ICONVLIB)
-
-convprefs: prefs.c prefs.h trie.o trie.h
-	$(CC) -DCONVERT $(DEBUG) $(FLAGS) trie.o -o convprefs prefs.c $(LIBS) 
+dbtool: db.h lorien.h dbtool.c $(OBJ)
+	$(CC) $(DEBUG) $(FLAGS) -o dbtool dbtool.c $(LIBS) $(OBJ)
 
 $(OBJ):$(P) Makefile
 

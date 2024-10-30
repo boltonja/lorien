@@ -80,6 +80,9 @@ getdtablesize()
 int
 setdtablesize(int newfdmax)
 {
+	if (newfdmax > FD_SETSIZE)
+		newfdmax = FD_SETSIZE;
+
 #ifdef RLIMIT_NOFILE
 	struct rlimit maxdescs;
 	getrlimit(RLIMIT_NOFILE, &maxdescs);

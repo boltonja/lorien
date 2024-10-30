@@ -44,6 +44,7 @@ Dave Mott          (Energizer Rabbit)
 #define _LORIEN_H_
 
 #include <sys/types.h>
+#include <sys/select.h>
 
 #include <time.h>
 
@@ -60,7 +61,7 @@ size_t MAXCONN;
 #define SUB	 2
 #define REGEX	 4 /* not yet implemented */
 
-#define VERSION	 "1.7.4"      /* the version number. */
+#define VERSION	 "1.7.5"      /* the version number. */
 #define BUFSIZE	 2048	      /* the maximum line length to be recieved */
 #define OBUFSIZE BUFSIZE + 80 /* bigger so formatting can occur. */
 #define HNAMELEN 80	      /* maximum host name length */
@@ -147,9 +148,8 @@ typedef enum { SPEECH_NORMAL, SPEECH_YELL, SPEECH_PRIVATE } speechmode;
 #include "config.h"
 #endif
 
-static char *player_flags_names[] = { "Showlevel", "Verified", "Whisper Beeps",
-	"Connection Messages", "Hushed", "Whisper Echoes", "Leaving", "Wrap",
-	".i Messages", "Yell Mode (Screaming)", "Spamming", "ERROR! 11" };
+extern char *player_flags_names[16];
+extern char *player_privs_names[16];
 
 /* values for flags */
 enum player_flags {
@@ -174,18 +174,6 @@ enum player_flags {
 #define PLAYER_XOR(f, p) (p->flags ^= PLAYER_##f)
 #define PLAYER_SET(f, p) (p->flags |= PLAYER_##f)
 #define PLAYER_HAS(f, p) (p->flags & PLAYER_##f)
-
-static char *player_privs_names[] = {
-	"Yell",
-	"Whisper",
-	"Set own name",
-	"Change channel",
-	"Quit",
-	"Use capital letters",
-	"Play",
-	"Post Bulletins",
-	"ERROR! 8",
-};
 
 /* values for the privs */
 enum player_privs {
@@ -249,6 +237,7 @@ struct splayer {
 	int privs;
 	int wrap;		 /* wrap column */
 	int flags;		 /* hush, etc. */
+	int pagelen;		 /* for paginating */
 	char name[MAX_NAME];	 /* the player's name */
 	char onfrom[MAX_NAME];	 /* where they are on from */
 	char host[MAX_NAME];	 /* where they are really on from */
@@ -257,24 +246,14 @@ struct splayer {
 	/* stuff that doesn't need to go in the db goes below here */
 	/* for the code to work, dboffset should be the first item in the non-db
 	 * stuff */
-	int free; /* 0-> record active, 1->this record is deleted */
-#ifdef USE_32_BIT_TIME_T
-	int filler1; /* always put the 32-bit time_t in the network byte
-		      * order low word for compat between 64-bit and 32-bit
-		      * systems.
-		      */
-#elif defined(USE_64_BIT_TIME_T)
-#error "time_t size is not understood by prefsdb!"
-#endif
-	time_t cameon;	/* last login time */
-	off_t dboffset; /* the offset of the record in the player db */
+	int free;	   /* 0-> record active, 1->this record is deleted */
+	time_t cameon;	   /* last login time */
+	time_t playerwhen; /* creation date */
+	time_t idle;	   /* number of seconds since player did anything */
 	chan *chnl;
 	struct splayer *next, *prev; /* the next player in the linked list */
 	fd_set gags;
-	long idle; /* number of seconds since player did anything */
-#ifdef ANTISPAM
-	int spamming; /* if the player is probably an e-mail spambot */
-#endif
+	int spamming;	    /* if the player is probably an e-mail spambot */
 	char pbuf[BUFSIZE]; /* player buffer for accumulating text in char mode
 			     */
 	int dotspeeddial;   /* line number of the last person .p'd to */

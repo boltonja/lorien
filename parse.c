@@ -201,9 +201,9 @@ parser_execute(struct splayer *pplayer, char *buf,
 		return PARSERR_SUPPRESS;
 	}
 
-	char (*p)(struct splayer *pplayer);
-	char (*p2)(struct splayer *pplayer, char *buf);
-	char (*p3)(struct splayer *pplayer, char *buf, speechmode mode);
+	char (*p)(struct splayer * pplayer);
+	char (*p2)(struct splayer * pplayer, char *buf);
+	char (*p3)(struct splayer * pplayer, char *buf, speechmode mode);
 
 	p = (void *)context->commands[entry->cmd].func;
 	p2 = (void *)context->commands[entry->cmd].func;

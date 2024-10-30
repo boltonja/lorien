@@ -51,7 +51,7 @@ static FILE *fpLOG = (FILE *)0;
 char *
 timeset()
 {
-	long int buf; /* Should be time_t */
+	time_t buf;
 	char *sp, *cp;
 
 	/* Get system time */

@@ -158,9 +158,3 @@ handleargs(int argc, char **argv)
 	fclose(stdout);
 	return 0;
 }
-
-int
-die(int exitstat)
-{
-	exit(exitstat);
-}

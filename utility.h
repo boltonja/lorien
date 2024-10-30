@@ -31,6 +31,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/types.h>
+
 #ifndef _UTILITY_H_
 #define _UTILITY_H_
 #define logerror(s) log_error(s, __FILE__, __LINE__)
@@ -42,8 +44,7 @@
 
 #define HI_BITS	    0x1E
 
-static char *hi_types[] = { "None", "Bold", "Underline", "Blink", "Reverse",
-	"ERROR!", "ERROR!", "ERROR!", "ERROR!" };
+extern char *hi_types[];
 
 int construct_mask(char *args, int *mask);
 char *expand_hilite(int mask, char *buffer);
@@ -54,6 +55,6 @@ char *mask2string32(int mask, int validbits, char *buffer, size_t buflen,
 char *mask2string(int mask, char *buffer, char **strings, char *separator);
 char *skipdigits(char *buf);
 char *skipspace(char *buf);
-char *timelet(long idle, long precision);
+char *timelet(time_t idle, long precision);
 
 #endif

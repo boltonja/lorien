@@ -96,11 +96,6 @@ Thistory|One thing Lorien has always had and always will have is power.
 Thistory|Ask your sysop what commands he/she regularly uses.  Power is necessary
 Thistory|to keep things running smoothly.
 Thistory|
-Thistory|Coming soon:
-Thistory|  -  Asynchronous hostname completion with authd lookups.
-Thistory|  -  Scripting language for configuration.
-Thistory|  -  Saving of flags with password information.
-Thistory|
 Tcommunication|Help: Communication
 Tcommunication|
 Tcommunication|To speak on the haven you simply type what you want to say.  You cannot
@@ -132,6 +127,7 @@ Tenvironment,commands,b|/b       Toggles whisper beeping.  When someone whispers
 Tenvironment,commands,b|         terminal bell will ring.  Only terminals that understand ASCII
 Tenvironment,commands,b|         will work.  If you are unsure, don't use this as your terminal
 Tenvironment,commands,b|         may hang if you don't have the right terminal.
+Tenvironment,commands,e|/e       Toggles whisper echoes.  When you /p someone, you'll get a receipt.
 Tenvironment,commands,G,gag,gags|/G       Gag a player.  If you use /G# you will no longer hear anything
 Tenvironment,commands,G,gag,gags|         sent by that player.  When he/she logs off, the gag will be reset
 Tenvironment,commands,G,gag,gags|         so that you can hear the new person.
@@ -191,9 +187,10 @@ Tnames,commands,n|         registered by the operator(s) with the name and passw
 Tnames,commands,n|         specify, then your name will be set and you will be marked
 Tnames,commands,n|         as verified in the /W list.  You must request that your name be
 Tnames,commands,n|         registered if you are worried about impersonation.
-Tnames,commands,n|/P       Change your password.  Once you have a registered name, you may
-Tnames,commands,n|         use /P<old>=<new> to change your password from <old> to <new>.
-Tnames,commands,n|         This command may be disabled by the operator(s).
+Tnames,commands,n,password,P,save|/P       Change your password.  Once you have a registered name, you may
+Tnames,commands,n,password,P,save|         use /P<old>=<new> to change your password from <old> to <new>.
+Tnames,commands,n,password,P,save|         Omit the new password to save changes to your player record.
+Tnames,commands,n,password,P,save|         This command may be disabled by the operator(s).
 2Tpower| Help: Power
 2Tpower|
 2Tpower|The normal level for a player is 1.  If your level drops below 1, you will

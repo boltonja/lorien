@@ -1,3 +1,18 @@
+30 October 2024 v 1.7.5
+- Updated README with platform-specific guidance
+- Added a few missing items to the help file (notably /e)
+- Removed stale content from Makefile
+- Makefile accepts CC, CFLAGS, and LIBS variables from environment
+- New lorien database (lorien.h) for prefs and passwords, using lmdb
+- New utility "dbtool"
+- TODO: need to encrypt the passwords
+- Finished initial implementation of /ModPlayer
+- Fixed command table so that "/P" and "/Password" are the same
+- Removed old passwords and preferences code
+- Limited MAXCONN to FD_SETSIZE
+- Cleaned up behavior near max connections
+- Additional portability, correctness, and string handling fixes
+
 9 October 2024 v 1.7.4
 - Clang-format according to FreeBSD style(9)
 - Multiple passes with Clang-16 and gcc-10 -Wall cleaning up warnings

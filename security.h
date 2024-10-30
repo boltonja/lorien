@@ -40,9 +40,7 @@
 
 #define MAX_POWER_PASS 20
 
-static char passwds[NUMLVL + 2][MAX_POWER_PASS] = { "level0", "level1",
-	"level2", "level3", "level4", "level5", "BRING_IT_DOWN",
-	"defaultcmds" };
+extern char passwds[NUMLVL + 2][MAX_POWER_PASS];
 
 /* need six, plus one for shutdown. */
 

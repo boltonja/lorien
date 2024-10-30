@@ -31,7 +31,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ban.h"
 #include "lorien.h"
+#include "newplayer.h"
 #include "platform.h"
 #include "servsock.h"
 #include "utility.h"
@@ -55,7 +57,7 @@ getsock(char *address, int port)
 	/* get a fresh socket */
 	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		logerror("lorien: Unable to get a new socket");
-		die(errno);
+		exit(errno);
 	}
 
 	/* decode address */
@@ -64,13 +66,13 @@ getsock(char *address, int port)
 		    (u_short)INADDR_NONE) {
 			logerror(
 			    "lorien: Unable to figure out numeric address");
-			die(errno);
+			exit(errno);
 		}
 	} else {
 		alarm(1);
 		if ((tmphost = gethostbyname(address)) == (struct hostent *)0) {
 			logerror("lorien: unable to get host adress:");
-			die(errno);
+			exit(errno);
 		}
 		alarm(0);
 		memcpy((char *)&tmpaddr, tmphost->h_addr,
@@ -88,25 +90,22 @@ getsock(char *address, int port)
 	if (bind(s, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in)) ==
 	    -1) {
 		logerror("lorien: Error attempting to bind");
-		die(errno);
+		exit(errno);
 	}
 
-#if 0
-   pptr = getprotobyname("tcp");
-   if (pptr)
-      memcpy(&p, pptr, sizeof(p));
-   else
-      p.p_proto = 6; /* because tcp is 6. */
-   endprotoent();
-      
-   setsockopt(s, p.p_proto, SO_REUSEADDR, &so_true, sizeof(so_true));
-   setsockopt(s, p.p_proto, SO_REUSEPORT, &so_true, sizeof(so_true));
-#endif
+	struct protoent *pptr = getprotobyname("tcp");
+	int p_proto = (pptr) ? pptr->p_proto : 6; /* tcp should be 6... */
+	endprotoent();
 
-	/* set our backlog of waiting connections to 5(max the system allows) */
+	int so_true = 1;
+
+	setsockopt(s, p_proto, SO_REUSEADDR, &so_true, sizeof(so_true));
+#ifdef SO_REUSEPORT
+	setsockopt(s, p_proto, SO_REUSEPORT, &so_true, sizeof(so_true));
+#endif
 	if (listen(s, 5) == -1) {
 		logerror("lorien: Error listening");
-		die(errno);
+		exit(errno);
 	}
 
 	return s;
@@ -118,16 +117,25 @@ acceptcon(int s, char *from, int len, char *from2, int len2, int *port)
 	int ns;
 	socklen_t length = sizeof(struct sockaddr_in);
 	char *buf;
-	struct hostent *tmphost;
+	struct hostent *tmphost = NULL;
 	struct sockaddr_in saddr;
 
 	if ((ns = accept(s, (struct sockaddr *)&saddr, &length)) == -1) {
 		logerror("lorien: Error trying to accept connections");
 		return -1;
-		/*die(errno);*/
 	}
 
-	//   fcntl(ns, F_SETFL, FNDELAY);
+	/* If the socket number is less than MAXCONN, it is representable in the
+	 * fd_set, and we can pass that to select(2). Otherwise, close the
+	 * connection.
+	 */
+	if (ns >= MAXCONN) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> All %lu connections are full.\r\n", MAXCONN);
+		outtosock(ns, sendbuf);
+		(void)close(ns);
+		return -1;
+	}
 
 #ifndef SKIP_HOSTLOOKUP
 	tmphost = gethostbyaddr((char *)&(saddr.sin_addr),
@@ -146,6 +154,13 @@ acceptcon(int s, char *from, int len, char *from2, int len2, int *port)
 			(void)strcpy(from, from2);
 	}
 	from[len - 1] = (char)0;
+	if (ban_findsite(from2) || ban_findsite(from)) {
+		snprintf(sendbuf, sizeof(sendbuf),
+		    ">> Your site is presently blocked.\r\n");
+		outtosock(ns, sendbuf);
+		(void)close(ns);
+		return -1;
+	}
 
 	*port = (int)ntohs((unsigned short)saddr.sin_port);
 

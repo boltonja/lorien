@@ -42,6 +42,7 @@
 
 */
 
+#include "db.h"
 #include "log.h"
 #include "lorien.h"
 #include "newplayer.h"
@@ -50,6 +51,9 @@
 /* .shutdown is available to level 4 and higher. */
 #include "commands.h"
 #include "security.h"
+
+char passwds[NUMLVL + 2][MAX_POWER_PASS] = { "level0", "level1", "level2",
+	"level3", "level4", "level5", "BRING_IT_DOWN", "defaultcmds" };
 
 void
 init_read_powerfile(void)
@@ -109,9 +113,8 @@ haven_shutdown(struct splayer *pplayer)
 	    ">> Shutting down to shut down command by %s from %s.\r\n",
 	    pplayer->name, pplayer->host);
 	sendall(sendbuf, ALL, 0);
-	die(0);
-	abort();
-	exit(1);
+	ldb_close(&lorien_db);
+	exit(0);
 	return PARSE_OK; /* not reached */
 }
 

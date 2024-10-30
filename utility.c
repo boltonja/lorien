@@ -35,6 +35,9 @@
 #include "platform.h"
 #include "utility.h"
 
+char *hi_types[] = { "None", "Bold", "Underline", "Blink", "Reverse", "ERROR!",
+	"ERROR!", "ERROR!", "ERROR!" };
+
 char *
 skipspace(char *buf)
 {
@@ -98,9 +101,11 @@ expand_hilite(int mask, char *buffer)
 {
 	char *cp;
 	int bit;
+	char vtesc[] = "[";
 
-	(void)strcpy(buffer, "[");
-	cp = buffer + 2;
+	(void)strncpy(buffer, vtesc, sizeof(vtesc) - 1);
+	buffer[sizeof(vtesc) - 1] = 0;
+	cp = buffer + sizeof(vtesc) - 1;
 	bit = 0;
 	while (bit < 8) {
 		if ((1 << bit) & mask) {
@@ -209,13 +214,17 @@ mask2string32(int mask, int validbits, char *buffer, size_t buflen,
 			if ((1 << bit) & mask) {
 				if (*buffer) {
 					if (buflen > (seplen + curlen)) {
-						(void)strcat(buffer, separator);
+						(void)strncat(buffer, separator,
+						    seplen);
+						buffer[seplen + curlen] =
+						    (char)0;
 						curlen += seplen;
 					}
 				}
 				if (buflen >
 				    ((z = strlen(strings[bit])) + curlen)) {
-					(void)strcat(buffer, strings[bit]);
+					(void)strncat(buffer, strings[bit], z);
+					buffer[z] = (char)0;
 					curlen += z;
 				}
 			}
@@ -252,7 +261,7 @@ mask2string(int mask, char *buffer, char **strings, char *separator)
 }
 
 char *
-timelet(long idle, long precision)
+timelet(time_t idle, long precision)
 {
 	static char buf[81];
 	char *cp;

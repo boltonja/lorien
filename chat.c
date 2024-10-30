@@ -42,6 +42,9 @@
 
  */
 
+#include <err.h>
+
+#include "db.h"
 #include "files.h"
 #include "lorien.h"
 #include "newplayer.h"
@@ -62,6 +65,17 @@ doit(int port)
 	int max;	 /* The highest fd we are using. */
 
 	initplayerstruct();
+
+	strncpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname) - 1);
+	lorien_db.dbname[sizeof(lorien_db.dbname) - 1] = (char)0;
+
+	int rc = ldb_open(&lorien_db);
+	if (rc != 0) {
+		// BUG: put the log on stderr so everything goes to the same
+		// place
+		err(rc, "lmdb can't open %s\r\n", lorien_db.dbname);
+		return 1; /* NOTREACHED */
+	}
 
 #ifdef _MSC_VER
 	{
@@ -90,10 +104,15 @@ doit(int port)
 
 	MAXCONN = gettablesize();
 
+	if (MAXCONN > FD_SETSIZE)
+		MAXCONN = FD_SETSIZE;
+
 	while (1) {
 		FD_ZERO(&needread);
 		FD_SET(s, &needread);
 		max = setfds(&needread);
+		if (s > max)
+			max = s;
 
 		if ((num = select(max + 1, &needread, (fd_set *)0, (fd_set *)0,
 			 (struct timeval *)0)) == -1) {

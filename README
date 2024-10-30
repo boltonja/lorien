@@ -120,10 +120,6 @@ lorien.c            - More code for the daemon and the startup code.
 lorien.h            - Defines and declarations used by all files.
 lorien.help         - The default help file.
 lorien.welcome      - The default welcome file.
-newpass.c           - The new, highly inefficient but fairly reliable 
-                      password routines.  Actually, they are no less efficient
-                      than those previously used.  They do, however, work
-                      better.
 newplayer.c         - The code for handling player operations, and obtaining
                       input and sending output.  These are high-level routines.
 parse.c             - The code for handling the commands.
@@ -137,18 +133,48 @@ utility.h           - Defines used by utility.c
 
 IV.  Installation.
 
-Simply cd into the Lorien directory and type:
+PRE-REQUISITES:
+
+Lorien requires lmdb (http://www.lmdb.tech/doc/starting.html). You may be able
+to install a package with your system's package manager. You may also need to
+add, e.g. "-I/usr/local/include" to your CFLAGS and "-L/usr/local/lib" to your
+LIBS in the Makefile.
+
+Lorien is known to build on the following systems:
+       Debian GNU/Linux 12 (bookworm) 
+       FreeBSD 14.1-RELEASE
+       OpenBSD 7.5
+       NetBSD 10.0
+       OpenIndiana
+       macOS Sonoma
+
+Prior to the introduction of lmdb, Lorien also built on Windows 11. You will
+need a recent Visual Studio (we used VS 2022 Community Edition) and a port
+of lmdb to attempt building. For turn-key installation on Windows, consider
+building and running under WSL. You can use ssh port forwarding from
+Powershell to expose lorien's WSL tcp port.
+
+On many systems, simply cd into the Lorien directory and type:
 
        make 
 
 For OpenSolaris-derived systems (Illumos, eg. OpenIndiana) you will want:
 
-       export LIBS="-lc -lnsl -lsocket"
-       make
+       make -k CC=clang LIBS="-lc -llmdb -lnsl -lsocket"
 
-You probably also want to create files called lorien.power,
-lorien.welcome, and lorien.db; and you will want to secure them. A
-suggested set of commands to do this:
+For macOS with HomeBrew:
+
+       make LIBS="-L/opt/homebrew/lib -lc -llmdb" \
+            CFLAGS="-I/opt/homebrew/include"
+
+For NetBSD:
+
+       export LD_LIBRARY_PATH=/usr/pkg/lib:/lib:/usr/lib:/usr/local/lib
+       make CFLAGS="-I/usr/pkg/include" LIBS="-L/usr/pkg/lib -lc -llmdb"
+
+You probably also want to create files called lorien.power, and
+lorien.welcome; and you will want to secure them. A suggested set of
+commands to do this:
 
 	make secure
 
@@ -179,6 +205,9 @@ shutup
 Launch with one of the following commands:
        lorien 2525 # run in the foreground
        lorien -d 2525 # run in the background
+
+Note that on OpenBSD, the default security settings don't allow
+the program to run in the background.
 
 V.  New Features
 
