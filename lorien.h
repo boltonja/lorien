@@ -61,7 +61,7 @@ size_t MAXCONN;
 #define SUB	 2
 #define REGEX	 4 /* not yet implemented */
 
-#define VERSION	 "1.7.5"      /* the version number. */
+#define VERSION	 "1.7.6"      /* the version number. */
 #define BUFSIZE	 2048	      /* the maximum line length to be recieved */
 #define OBUFSIZE BUFSIZE + 80 /* bigger so formatting can occur. */
 #define HNAMELEN 80	      /* maximum host name length */

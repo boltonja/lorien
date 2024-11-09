@@ -14,6 +14,7 @@
 - dbtool: added "level" to player settings that can be managed
 - increased password length to account for salted, hashed passwords
 - removed vestigial multibyte test string from help file
+- removed binaries that were accidentally committed previously
 
 30 October 2024 v 1.7.5
 - Updated README with platform-specific guidance
