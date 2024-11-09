@@ -10,9 +10,13 @@
 #include "db.h"
 #include "lorien.h"
 #include "newplayer.h"
+#include "security.h"
 
 const char usage[] = "usage:\n"
-		     "\tdbtool (update|add|get|list) <player> <password>\n";
+		     "\tdbtool player (add|auth|update) <player> <password>\n"
+	             "\tdbtool player get <player>\n"
+	             "\tdbtool player list\n"
+	             "\tdbtool player level <player> <level>\n";
 
 size_t MAXCONN;
 time_t lorien_boot_time;
@@ -49,7 +53,26 @@ main(int argc, char *argv[])
 
 	argindex++;
 
-	if (!strcmp("get", argv[argindex])) {
+	if (!strcmp("auth", argv[argindex])) {
+		char *name = argv[argindex + 1];
+		rc = ldb_player_get(&lorien_db, name, strlen(name), &p);
+		if (rc == MDB_NOTFOUND) {
+			errno = rc;
+			warn(">> player %s not found", name);
+		} else if (rc == 0) {
+			rc = ckpasswd(p.password, argv[argindex + 2]);
+			if (rc < 0)
+				err(EX_IOERR, "can't hash password");
+			else if (rc > 0)
+				printf("passwords do not match\n");
+			else
+				printf("password accepted\n");
+		} else {
+			errno = rc;
+			err(EX_IOERR, ">> can't read player %s", name);
+		}
+
+	} else if (!strcmp("get", argv[argindex])) {
 		char *name = argv[argindex + 1];
 		rc = ldb_player_get(&lorien_db, name, strlen(name), &p);
 		if (rc == MDB_NOTFOUND) {
@@ -57,7 +80,8 @@ main(int argc, char *argv[])
 			warn(">> player %s not found", name);
 		} else if (rc == 0) {
 			assert(!strcmp(p.name, name));
-			printf("player %s password %s", p.name, p.password);
+			printf("player %s level %d password %s", p.name,
+			       p.seclevel, p.password);
 		} else {
 			errno = rc;
 			err(EX_IOERR, ">> can't read player %s", name);
@@ -90,7 +114,7 @@ main(int argc, char *argv[])
 		char *name = argv[argindex + 1];
 		char *password = argv[argindex + 2];
 
-		if (argc != 4) {
+		if (argc != 5) {
 			errno = EINVAL;
 			err(EX_USAGE, usage);
 		}
@@ -98,11 +122,13 @@ main(int argc, char *argv[])
 		memset(&p, 0, sizeof(p));
 		playerinit(&p, time((time_t *)0), "0.0.0.0", "0.0.0.0");
 
-		strncpy(p.name, name, sizeof(p.name) - 1);
-		p.name[sizeof(p.name) - 1] = (char)0;
+		strlcpy(p.name, name, sizeof(p.name));
 
-		strncpy(p.password, password, sizeof(p.password) - 1);
-		p.password[sizeof(p.password) - 1] = (char)0;
+		rc = mkpasswd(p.password, sizeof(p.password), password);
+		if (rc) {
+			errno = EINVAL;
+			err(EX_IOERR, "can't hash password");
+		}
 
 		rc = ldb_player_put(&lorien_db, &p, true);
 		if (rc == MDB_KEYEXIST) {
@@ -112,11 +138,42 @@ main(int argc, char *argv[])
 			errno = rc;
 			err(EX_IOERR, "cannot create player %s", name);
 		}
+	} else if (!strcmp("level", argv[argindex])) {
+		char *name = argv[argindex + 1];
+		char *level = argv[argindex + 2];
+		int levnum = atoi(level);
+
+		if (argc != 5) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+
+		if ((levnum < JOEUSER) || (levnum >= NUMLVL)) {
+			errno = EINVAL;
+			err(EX_USAGE, "level is out of range");
+		}
+
+		playerinit(&p, 0, "1.1.1.1", "8.8.8.8");
+
+		rc = ldb_player_get(&lorien_db, name,
+		    strnlen(name, sizeof(p.name) - 1), &p);
+		if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, "can't read player %s", name);
+		}
+
+		p.seclevel = levnum;
+
+		rc = ldb_player_put(&lorien_db, &p, false);
+		if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, "cannot update player %s", name);
+		}
 	} else if (!strcmp("update", argv[argindex])) {
 		char *name = argv[argindex + 1];
 		char *password = argv[argindex + 2];
 
-		if (argc != 4) {
+		if (argc != 5) {
 			errno = EINVAL;
 			err(EX_USAGE, usage);
 		}
@@ -130,8 +187,11 @@ main(int argc, char *argv[])
 			err(EX_IOERR, "can't read player %s", name);
 		}
 
-		strncpy(p.password, password, sizeof(p.password) - 1);
-		p.password[sizeof(p.password) - 1] = (char)0;
+		rc = mkpasswd(p.password, sizeof(p.password), password);
+		if (rc) {
+			errno = EINVAL;
+			err(EX_IOERR, "can't hash password");
+		}
 
 		rc = ldb_player_put(&lorien_db, &p, false);
 		if (rc != 0) {

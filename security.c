@@ -42,6 +42,16 @@
 
 */
 
+#if defined(__APPLE__)
+#include <sys/random.h>
+#endif
+
+#include <assert.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "db.h"
 #include "log.h"
 #include "lorien.h"
@@ -51,56 +61,6 @@
 /* .shutdown is available to level 4 and higher. */
 #include "commands.h"
 #include "security.h"
-
-char passwds[NUMLVL + 2][MAX_POWER_PASS] = { "level0", "level1", "level2",
-	"level3", "level4", "level5", "BRING_IT_DOWN", "defaultcmds" };
-
-void
-init_read_powerfile(void)
-{
-	FILE *pfile;
-	char *tmp;
-	char s[BUFSIZE];
-	int index = 0;
-
-	pfile = fopen("lorien.power", "r");
-	if (pfile) {
-		while (!feof(pfile) && index != (NUMLVL + 2)) {
-			fgets(s, BUFSIZE - 1, pfile);
-			if (!feof(pfile)) {
-				if ((tmp = (char *)strstr(s, "\r")))
-					*tmp = (char)0;
-				if ((tmp = (char *)strstr(s, "\n")))
-					*tmp = (char)0;
-				strncpy(passwds[index], s, MAX_POWER_PASS);
-				index++;
-			}
-		}
-		fclose(pfile);
-	}
-}
-
-int
-printlevels(struct splayer *pplayer)
-{
-	int i;
-
-	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> The passwords are as follows:\r\n");
-	sendtoplayer(pplayer, sendbuf);
-	for (i = 0; i < NUMLVL; i++) {
-		snprintf(sendbuf, sizeof(sendbuf), ">> Level %d: %s\r\n", i,
-		    passwds[i]);
-		if (i <= pplayer->seclevel)
-			sendtoplayer(pplayer, sendbuf);
-	}
-	snprintf(sendbuf, sizeof(sendbuf), ">> Shutdown: %s\r\n", P_SHUTDOWN);
-	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> Restore default commands et: %s\r\n", P_COMMANDS);
-	sendtoplayer(pplayer, sendbuf);
-	return 1;
-}
 
 parse_error
 haven_shutdown(struct splayer *pplayer)
@@ -118,83 +78,170 @@ haven_shutdown(struct splayer *pplayer)
 	return PARSE_OK; /* not reached */
 }
 
+/* generates a sha512-suitable salt, e.g. "$6$0123456789ABCDEF$" */
 int
-changelevel(char *password, struct splayer *pplayer)
+generate_sha512_salt(char *buf, size_t sz)
 {
-	char *buf;
-	int level;
+	const char prefix[] = "$6$";
+	char entropy[12]; /* 96 bits */
+	int rc;
+	size_t l = strlen(prefix);
 
-	/* check for returns and newlines */
-	if ((buf = (char *)strchr(password, '\r')) != (char *)0) {
-		*buf = '\000';
+	/* if entropy size is not multiple of 3, the salt would be padded */
+	assert((sizeof(entropy) % 3) == 0);
+
+	/* ensure enough space for:
+	 * - 3 byte prefix
+	 * - sizeof(entropy)
+	 * - a NUL character
+	 * - a trailing '$' after the entropy bits
+	 */
+	assert(sz >= 21);
+
+        rc = getentropy((void *)entropy, sizeof(entropy));
+	if (rc != 0)
+		return -1;
+
+	l = strlcpy(buf, prefix, sz);
+	if (l != strlen(prefix))
+		return -1;
+
+	rc = EVP_EncodeBlock((void *)(buf + l), (void *)entropy,
+				 sizeof(entropy));
+
+	if (rc != (sizeof(entropy) * 4 / 3))
+		return -1;
+
+	/* 20 == length of a sha512-suitable salt including all three '$' */
+	assert(strlcat(buf, "$", sz) == 20);
+
+	return 0;
+}
+
+static const EVP_MD *hashfunc = NULL;
+static size_t hashsz = 0;
+
+int
+init_security(void)
+{
+
+	if (!hashfunc) {
+		OpenSSL_add_all_digests();
+		hashfunc = EVP_get_digestbyname("SHA512");
+		if (hashfunc)
+			hashsz = EVP_MD_size(hashfunc);
+
+		assert((20 + hashsz) <= MAX_PASS);
 	}
 
-	if ((buf = (char *)strchr(password, '\n')) != (char *)0) {
-		*buf = '\000';
+	return (hashfunc) ? 0 : -1;
+}
+
+int
+mkpasswd(char *buf, size_t sz, const char *key)
+{
+	char salt[21] = { 0 };
+	char hashed[MAX_PASS];
+
+	if (init_security() != 0)
+		return -1;
+
+	int rc = generate_sha512_salt(salt, sizeof(salt));
+	if (rc != 0) {
+		return -1;
 	}
 
-	/* if there is an '=' it is a password change.  old password in password
-    new password in buf.  '=' discarded. */
+	assert(salt[0] == '$');
+	assert(salt[2] == '$');
+	assert(salt[19] == '$');
+	assert(sz >= (20 + hashsz));
 
-	if ((buf = (char *)strchr(password, '=')) != (char *)0) {
-		*buf = '\000';
-		buf++;
+	rc = hashpass(hashed, sizeof(hashed), key, salt);
+	strlcpy(buf, hashed, sz);
+
+	return rc;
+}
+
+/* returns 0 if the guess matches, 1 if it doesn't,
+ * and -1 if the hash couldn't be computed.
+ */
+int
+ckpasswd(const char *authstr, const char *guess)
+{
+	char salt[21] = { 0 };
+	char hashed[MAX_PASS];
+	int rc;
+
+	if (init_security() != 0)
+		return -1;
+
+	strlcpy(salt, authstr, sizeof(salt));
+	assert(salt[0] == '$');
+	assert(salt[2] == '$');
+	assert(salt[19] == '$');
+
+	rc = hashpass(hashed, sizeof(hashed), guess, salt);
+	if (rc != 0)
+		return -1;
+
+	if (strcmp(hashed, authstr))
+		return 1;
+
+	return 0;
+}
+
+int
+hashpass(char *out, size_t sz, const char *key, const char *salt)
+{
+	int rc = -1;
+	EVP_MD_CTX *ctx = NULL;
+	unsigned char *outhash = NULL;
+	unsigned int len = 0;
+
+	assert(key);
+	assert(salt);
+	assert(out);
+	assert(strlen(salt) == 20);
+	assert(sz >= (20 + hashsz));
+
+	ctx = EVP_MD_CTX_new();
+	if (!ctx)
+		goto out;
+
+	if (!EVP_DigestInit_ex(ctx, hashfunc, NULL))
+		goto out;
+
+	if (!EVP_DigestUpdate(ctx, &salt[3], 16))
+		goto out;
+
+	if (!EVP_DigestUpdate(ctx, key, strlen(key)))
+		goto out;
+
+	strlcpy(out, salt, 21);
+
+	outhash = OPENSSL_malloc(hashsz);
+	if (!outhash)
+		goto out;
+
+	if (!EVP_DigestFinal_ex(ctx, outhash, &len)) {
+		ERR_print_errors_fp(stderr);
+		goto out;
 	}
 
-	if (!strcmp(password, P_FLUSH_ERR)) {
-		(void)fflush(stderr);
-		level = pplayer->seclevel;
-		return level;
-	}
+	len = EVP_EncodeBlock((void *)&out[20], outhash, len);
 
-	if (!strcmp(password, P_SHUTDOWN)) {
-		haven_shutdown(pplayer);
-	}
+	if (sz <= len + 20)
+		goto out;
 
-	if (!strcmp(password, P_SHUTDOWN)) {
-		restore_default_commands(pplayer);
-	}
-	/* compare to each successive password if not a command, or if changing.
-    if not valid, then set level to -1.  this will kick them off. */
+	out[len + 20] = (char) 0;
 
-	for (level = JOEUSER; level < NUMLVL; level++)
-		if (!strcmp(password, passwds[level]))
-			break;
+	rc = 0;
 
-	if (level == NUMLVL)
-		level = -1;
+out:
+	if (outhash)
+		OPENSSL_free(outhash);
+	if (ctx)
+		EVP_MD_CTX_free(ctx);
 
-	/* if buf is neither null nor empty, then it is a password change.
-    player must be at least level 4 for this.  */
-
-	if ((buf != (char *)0) && (*buf != '\000')) {
-		if (pplayer->seclevel < SUPREME)
-			return -1;
-
-		snprintf(sendbuf, sizeof(sendbuf),
-		    "%s changed level %d passwd, %s, to %s.", pplayer->name,
-		    level, passwds[level], buf);
-		strncpy(passwds[level], buf, MAX_POWER_PASS);
-		log_msg(sendbuf);
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Level %d password changed to %s.\r\n", level,
-		    passwds[level]);
-		sendtoplayer(pplayer, sendbuf);
-		level = pplayer->seclevel;
-	} else {
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Level changed to %d.\r\n", level);
-		if (level != -1)
-			sendtoplayer(pplayer, sendbuf);
-	};
-
-	if (*password != '\000') {
-		if (level == -1) {
-			snprintf(sendbuf, sizeof(sendbuf),
-			    "failed passwd attempt -->%s<-- by %s", password,
-			    pplayer->name);
-			log_msg(sendbuf);
-		}
-	}
-	return (level);
+	return rc;
 }

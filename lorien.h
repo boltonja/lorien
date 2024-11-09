@@ -224,7 +224,8 @@ struct channel_struct {
 #define DEPARTURE	  (chan *)-5
 
 #define LORIEN_V0173_PASS 10
-#define LORIEN_V0174_PASS 20
+/* sha512 hash encoded is 88 chars, plus 20 for the salt */
+#define LORIEN_V0174_PASS 110
 #define LORIEN_VCURR	  0x00000174
 #define LORIEN_V0173_NAME 50
 #define LORIEN_V0174_NAME MAX_NAME

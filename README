@@ -21,6 +21,7 @@ put this distribution together, including:
  Brian Crowder (Krelin) -       For giving it a very thorough live test.
  Corey Espich (Random) -        For the same.
  Amanda Green (Eliste) -        For providing a testbed for new code.
+ Ingrix -                       For helping test lorien.db and passwords
 -----------------------------------------------------------------------)
 
 Contents:
@@ -107,7 +108,7 @@ Makefile            - The file used to build the project.  Type 'make'
 README              - This file.
 READ_ME_QUICK_START - A quick start file with some very basic instructions.
 ban.c               - Code for banning sites.
-ban.h               - Definitions for ban.c 
+ban.h               - Definitions for ban.c
 chat.c              - Some of the main code for the daemon.
 config.h            - Used if some things can't be selected in the makefile.
 filetest.c          - An old program useful for testing to see if your
@@ -140,8 +141,10 @@ to install a package with your system's package manager. You may also need to
 add, e.g. "-I/usr/local/include" to your CFLAGS and "-L/usr/local/lib" to your
 LIBS in the Makefile.
 
+For Linux, libbsd-dev and libssl-dev are also required.
+
 Lorien is known to build on the following systems:
-       Debian GNU/Linux 12 (bookworm) 
+       Debian GNU/Linux 12 (bookworm)
        FreeBSD 14.1-RELEASE
        OpenBSD 7.5
        NetBSD 10.0
@@ -156,58 +159,83 @@ Powershell to expose lorien's WSL tcp port.
 
 On many systems, simply cd into the Lorien directory and type:
 
-       make 
+       make
+
+For FreeBSD:
+
+       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lcrypto"
+
+For Ubuntu or Debian:
+
+       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lbsd -lcrypto"
 
 For OpenSolaris-derived systems (Illumos, eg. OpenIndiana) you will want:
 
-       make -k CC=clang LIBS="-lc -llmdb -lnsl -lsocket"
+       make -k CC=gcc LIBS="-lc -llmdb -lnsl -lsocket -lcrypto"
 
 For macOS with HomeBrew:
 
-       make LIBS="-L/opt/homebrew/lib -lc -llmdb" \
+       make LIBS="-L/opt/homebrew/lib -lc -llmdb -lcrypto" \
             CFLAGS="-I/opt/homebrew/include"
 
 For NetBSD:
 
        export LD_LIBRARY_PATH=/usr/pkg/lib:/lib:/usr/lib:/usr/local/lib
-       make CFLAGS="-I/usr/pkg/include" LIBS="-L/usr/pkg/lib -lc -llmdb"
+       make CFLAGS="-I/usr/pkg/include" \
+            LIBS="-L/usr/pkg/lib -lc -llmdb -lcrypto"
 
-You probably also want to create files called lorien.power, and
-lorien.welcome; and you will want to secure them. A suggested set of
-commands to do this:
+For OpenBSD:
+       make LIBS="-L/usr/local/lib -lc -llmdb -lcrypto" 
+
+You probably also want to create a file called lorien.welcome, which
+is an (ostensibly) text file that is displayed to each new connection.
+You can secure the files in the lorien directory by typing:
 
 	make secure
 
 You should run it again after building to ensure the binaries and
-objects are protected from tampering.  The lorien.welcome is an
-(ostensibly) text file that will be shown to users when they join.
+objects are protected from tampering.
 
-You should also edit the lorien.power file as described below, and
-keep copies of lorien.power, lorien.db, and lorien.welcome so they
-don't get overwritten by future downloads.
+Next you will want to create at least one user and give them power:
 
-You should edit the file lorien.power to set the passwords.  This file
-is read every time Lorien starts and contains, in order, the level 0
-through level 5 passwords, followed by the shutdown password.  There
-is one password on each line.  Passwords can be up to 19 characters
-long.  The distribution comes with a file that looks like this:
+        ./dbtool player add <name> <password>
+	./dbtool player level <name> 5
 
----CUT HERE---
-lev0
-lev1
-lev2
-lev3
-lev4
-lev5
-shutup
----CUT HERE---
+More users can be created by this user when connected to Lorien.  If
+you choose to add normal (un-powered) users from the command line
+you should set their level to 1:
+
+        ./dbtool player add <name> <password>
+	./dbtool player level <name> 1
+
+Note that users must know their current password to change it when
+connected to Lorien.
+
+After this, you should back up the lorien.welcome file and the
+lorien.db directory (and its contents) so they don't get overwritten
+by future downloads.
 
 Launch with one of the following commands:
        lorien 2525 # run in the foreground
        lorien -d 2525 # run in the background
 
-Note that on OpenBSD, the default security settings don't allow
-the program to run in the background.
+Users can connect without authenticating, but they won't be able to
+save their preferences. To authenticate, users should connect and
+type:
+
+       /n name=password
+
+To change their password, users can type:
+
+       /P oldpass=newpass
+
+Note that on OpenBSD, the default security settings don't allow the
+program to run in the background.
+
+To shut down Lorien, connect with the powered user you created above
+and type:
+
+       /shutdown
 
 V.  New Features
 

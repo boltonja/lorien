@@ -46,7 +46,6 @@ command /messages CMD_ECHO
 command /name CMD_TUNE
 command /onfrom CMD_FINGER
 command /p CMD_YELL
-command /plev CMD_PRINTPOWER
 command /post CMD_POST
 command /private CMD_YELL
 command /quit CMD_WHO

@@ -1,3 +1,20 @@
+8 Nov 2024 v 1.7.6
+- Replaced cleartext passwords with encrypted passwords  using libressl/openssl
+- Removed old-style .qpasswords/.plev, power levels are saved with players now
+- Updated README to introduce dbtool for player/power management
+- Removed -DSHUTDOWN_COMMAND and made it the default
+- Removed vestigial -DLORIEN from makefile
+- Added sample make commands for each supported platform in the README
+- modPlayer bugfix: operator can no longer change level of higher operator
+- modPlayer bugfix: operator can no longer change password of higher operator
+- enablePlayer bugfix: removed PLAYER_HAS(VRFY) check for online player
+- parser bugfix: explicitly added .P back to the command table
+- changePlayer: new password is now only required for password changes
+- started introducing strlcpy(3)
+- dbtool: added "level" to player settings that can be managed
+- increased password length to account for salted, hashed passwords
+- removed vestigial multibyte test string from help file
+
 30 October 2024 v 1.7.5
 - Updated README with platform-specific guidance
 - Added a few missing items to the help file (notably /e)

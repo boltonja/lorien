@@ -66,7 +66,6 @@ main(int argc, char **argv)
 	handleargs(argc, argv + 1);
 
 	ban_read_blockfile();
-	init_read_powerfile();
 
 	doit(port);
 

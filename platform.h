@@ -43,6 +43,11 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef __illumos__
+#define EVP_MD_CTX_new() EVP_MD_CTX_create()
+#define EVP_MD_CTX_free(p) EVP_MD_CTX_destroy(p)
+#endif
+
 #ifndef _MSC_VER
 #include <sys/resource.h>
 #include <sys/select.h>

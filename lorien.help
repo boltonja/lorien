@@ -1,12 +1,12 @@
 # This is a Lorien help file.
-# 
+#
 # Syntax follows:
 # #<text>
 # OR
 # <level>M|<text>
 # OR
 # <level>T[<tag><,tag><,tag>...]|<text>
-# 
+#
 # Each line may be preceded by an optional minimum security level.
 # Lines are output in the order they are encountered.
 # Lines without tags will not be output.
@@ -25,7 +25,7 @@ Tsection|Thanks to the following people for developing this code:
 Tsection| - Chris Eleveld (The Insane Hermit)
 Tsection| - Robert Slaven (TCK/Tigger)
 Tsection| - Dave Mott (Energizer Rabbit)
-Tsection| - Jillian Bolton (Creel) 
+Tsection| - Jillian Bolton (Creel)
 Tsection|
 Tsection| The following are available help sections:
 Tsection|
@@ -34,10 +34,9 @@ Tsection| communication    info
 Tsection| environment      names
 Tsection| general          sitebans
 Tsection| havens           wrap
-Tsection| help             
+Tsection| help
 Tsection|
 Tsection| If you are a sysop you can use get help on the "power" section.
-Tsection| And in this stríng wé have mültibyte glyphs.  ðþøßo̊å
 Thelp|Help: Help
 Thelp|
 Thelp|The help system should be easy to use, but powerful.
@@ -58,13 +57,13 @@ Tgeneral,commands,n|         name.  Anyone caught impersonating others will be d
 Tgeneral,commands,n|         when an operator is notified.
 Tgeneral,commands,u|/u       View the uptime.
 Tgeneral,commands,q,quit|/q       Logs you out of the haven.
-Tgeneral| 
+Tgeneral|
 Tgeneral|Everyone on the haven has a line number.  When you speak with them, you
 Tgeneral|use their name.  It is customary to refer to all "nameless" people by
 Tgeneral|their line number in conversation.  You also use this line number to send
 Tgeneral|commands in their "direction"  For example, to send a whisper to someone
 Tgeneral|on line 17, you type "/p17 hey there!"
-Tgeneral| 
+Tgeneral|
 Tgeneral|See also /? communication
 Thistory|Help: History
 Thistory|----------------------------------------------------------------------------
@@ -89,7 +88,7 @@ Thistory|
 Thistory|Dave Mott cleaned up the parser (it looks a bit different now but operates
 Thistory|about the same as it used to.  Over the next year, Creel worked little
 Thistory|by little to improve the code, and released it under the BSD License.
-Thistory|The code now has extensive online help (you're reading it now) and 
+Thistory|The code now has extensive online help (you're reading it now) and
 Thistory|all the features you would expect from a haven.
 Thistory|
 Thistory|One thing Lorien has always had and always will have is power.
@@ -109,7 +108,7 @@ Tcommunication|
 Tcommunication|Command  Description
 Tcommunication|-------  ------------------------------------------------------------------
 Tcommunication,commands,p|/p       Whisper to someone.  Use /p# <msg> to send <msg> to line #
-Tcommunication,commands,y|/y       Yell to everyone who is not hushed.  (see environment) 
+Tcommunication,commands,y|/y       Yell to everyone who is not hushed.  (see environment)
 Tcommunication,commands,y|         The format is /y <msg>
 Tcommunication,commands,y|
 Tcommunication|For each of the above commands, you may precede <msg> with a ':' to cause
@@ -163,7 +162,7 @@ Tinfo,commands,f|         fit.  Use /f# to get info about a player.
 Tinfo,commands,w|/w       Obtain a list of who is logged in.  If you use /w <pattern> the
 Tinfo,commands,w|         command will only display lines containing <pattern>  Pattern
 Tinfo,commands,w|         is case insensitive.  Only the line number, name, channel, and
-Tinfo,commands,w|         host info is searched.  (This is a lie) 
+Tinfo,commands,w|         host info is searched.  (This is a lie)
 Tinfo,commands,W|/W       Obtain extended information about logged in persons, including
 Tinfo,commands,W|         security level and port number on the remote machine.
 Thavens|Help: Other Havens
@@ -229,6 +228,5 @@ Tnames,commands,n,password,P,save|         This command may be disabled by the o
 4Tpower,commands,Purgelog|         Purges the log.
 Tpower,commands,o,doing,hostname|/o       Change apparent host name.  Changing other's hostnames is not
 Tpower,commands,o,doing,hostname|         allowed.  (May be restricted to level 3 or above) /o<host>
-4Tpower,commands,plev|/plev    Print passwords.
 4Tpower,commands,shutdown|/shutdown Shuts down the haven.
 B|Use /q to quit.

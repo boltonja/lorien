@@ -31,20 +31,10 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* security.h ---  keep this for yourself.  it's got passwords.
- */
+/* security.h ---  */
 
-#define P_SHUTDOWN     passwds[NUMLVL]
-#define P_COMMANDS     passwds[NUMLVL + 1]
-#define P_FLUSH_ERR    "flushme"
-
-#define MAX_POWER_PASS 20
-
-extern char passwds[NUMLVL + 2][MAX_POWER_PASS];
-
-/* need six, plus one for shutdown. */
-
-int changelevel(char *password, struct splayer *pplayer);
+int ckpasswd(const char *authstr, const char *guess);
+int generate_sha512_salt(char *buf, size_t sz);
+int hashpass(char *out, size_t sz, const char *key, const char *salt);
 parse_error haven_shutdown(struct splayer *pplayer);
-void init_read_powerfile(void);
-int printlevels(struct splayer *pplayer);
+int mkpasswd(char *buf, size_t sz, const char *key);

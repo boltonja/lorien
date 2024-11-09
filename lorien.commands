@@ -46,7 +46,6 @@ command /messages CMD_MESSAGES
 command /name CMD_NAME
 command /onfrom CMD_DOING
 command /p CMD_WHISPER
-command /plev CMD_PRINTPOWER
 command /post CMD_POST
 command /private CMD_WHISPER
 command /quit CMD_QUIT
