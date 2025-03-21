@@ -203,38 +203,25 @@ mask2string32(int mask, int validbits, char *buffer, size_t buflen,
     char **strings, char *separator)
 {
 	int bit;
-	int curlen = 0, seplen;
-	int z;
 
 	bit = 0;
 	*buffer = '\000';
-	seplen = strlen(separator);
+	if (validbits > 32)
+		validbits = 32;
+
 	if (mask) {
-		while (bit <= ((validbits > 32) ? 32 : validbits)) {
+		while (bit <= validbits) {
 			if ((1 << bit) & mask) {
 				if (*buffer) {
-					if (buflen > (seplen + curlen)) {
-						(void)strncat(buffer, separator,
-						    seplen);
-						buffer[seplen + curlen] =
-						    (char)0;
-						curlen += seplen;
-					}
+					(void)strlcat(buffer, separator,
+						      buflen);
 				}
-				if (buflen >
-				    ((z = strlen(strings[bit])) + curlen)) {
-					(void)strncat(buffer, strings[bit], z);
-					buffer[z] = (char)0;
-					curlen += z;
-				}
+				(void)strlcat(buffer, strings[bit], buflen);
 			}
 			bit++;
 		}
 	} else {
-		if (buflen > ((z = strlen(strings[0])) + curlen)) {
-			(void)strcat(buffer, strings[0]);
-			curlen += z;
-		}
+		(void)strlcat(buffer, strings[0], buflen);
 	}
 	return buffer;
 }
