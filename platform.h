@@ -31,10 +31,16 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#include <sys/endian.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
+#if defined(__linux__) || defined(__illumos__) || defined(__OpenBSD__)
+#include <endian.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

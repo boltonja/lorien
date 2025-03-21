@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jillian Alana Bolton
+ * Copyright 2024,2025 Jillian Alana Bolton
  *
  * The BSD 2-Clause License
  *
@@ -33,8 +33,22 @@
 
 #include <lmdb.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "lorien.h"
+#define BUFSIZE	 2048	      /* the maximum line length to be recieved */
+#define OBUFSIZE BUFSIZE + 80 /* bigger so formatting can occur. */
+#define HNAMELEN 80	      /* maximum host name length */
+
+/* sha512 hash encoded is 88 chars, plus 20 for the salt */
+#define LORIEN_V0174_PASS 110
+#define LORIEN_DBVERSION  0x00000174
+#define LORIEN_V0174_NAME 50
+#define LORIEN_V0174_CHAN 13
+#define LORIEN_V0174_DESC 240
+
+#define MAX_PASS LORIEN_V0174_PASS
+#define MAX_NAME LORIEN_V0174_NAME
+#define MAX_CHAN LORIEN_V0174_CHAN
 
 typedef enum {
 	LDB_BOARD,
@@ -47,6 +61,7 @@ typedef enum {
 struct ldb_player {
 	/* key */
 	char name[LORIEN_V0174_NAME];
+
 	/* data */
 	char password[LORIEN_V0174_PASS]; /* BUG: encrypt with libssl */
 	char host[LORIEN_V0174_NAME];
@@ -56,31 +71,38 @@ struct ldb_player {
 	int wrap;
 	int flags;
 	int pagelen;	   /* for paginating, e.g., boards */
-	time_t playerwhen; /* creation time */
-	time_t loginwhen;  /* NOT last seen, too many updates! */
+	time_t created;    /* creation time */
+	time_t login;      /* NOT last seen, too many updates! */
 };
 
 struct ldb_chan {
 	/* key */
-	char name[MAX_CHAN + 1];
+	char name[LORIEN_V0174_CHAN];
+
 	/* data */
-	time_t chanwhen;
+	char owner[LORIEN_V0174_NAME];
+	char desc[LORIEN_V0174_DESC];
+	time_t created;
 };
 
 struct ldb_board {
 	/* key */
-	char name[MAX_CHAN + 1];
+	char name[LORIEN_V0174_NAME];
+
 	/* data */
-	size_t boardquota;
-	time_t boardwhen;		    /* created */
-	char boardwhere[LORIEN_V0174_NAME]; /* name of db of many ldb_msg */
+	char owner[LORIEN_V0174_NAME];
+	time_t created;		    /* created */
+	char desc[LORIEN_V0174_DESC];
 };
 
 struct ldb_msg {
 	/* key */
-	time_t postwhen;
+	char board[LORIEN_V0174_NAME];
+	char owner[LORIEN_V0174_NAME];
+	char subj[LORIEN_V0174_NAME];
+
 	/* data */
-	char postwho[LORIEN_V0174_NAME]; /* from */
+	time_t created;
 	char text[BUFSIZE];
 };
 
@@ -93,6 +115,8 @@ struct lorien_db {
 extern struct lorien_db lorien_db;
 
 extern const char *ldb_names[];
+
+struct splayer;
 
 int ldb_close(struct lorien_db *db);
 int ldb_open(struct lorien_db *db);

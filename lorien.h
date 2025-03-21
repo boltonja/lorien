@@ -48,7 +48,9 @@ Dave Mott          (Energizer Rabbit)
 
 #include <time.h>
 
+#include "db.h"
 #include "utility.h"
+#include "ring.h"
 
 #ifndef _LORIEN_C_
 extern size_t MAXCONN;
@@ -62,9 +64,6 @@ size_t MAXCONN;
 #define REGEX	 4 /* not yet implemented */
 
 #define VERSION	 "1.7.6"      /* the version number. */
-#define BUFSIZE	 2048	      /* the maximum line length to be recieved */
-#define OBUFSIZE BUFSIZE + 80 /* bigger so formatting can occur. */
-#define HNAMELEN 80	      /* maximum host name length */
 #define MAXARGS	 4	      /* the maximum number of args on a cmd line */
 
 /* These are the security levels.
@@ -124,8 +123,6 @@ enum {
 
 typedef enum { SPEECH_NORMAL, SPEECH_YELL, SPEECH_PRIVATE } speechmode;
 
-#include "ring.h"
-
 #define WELCOMEFILE "lorien.welcome"
 #define BLOCKFILE   "lorien.block"
 #define HELPFILE    "lorien.help"
@@ -135,8 +132,6 @@ typedef enum { SPEECH_NORMAL, SPEECH_YELL, SPEECH_PRIVATE } speechmode;
 #define LINE \
 	"-------------------------------------------------------------------------------\r\n"
 
-#define MAX_NAME 50
-#define MAX_CHAN 13
 #ifndef USE_CONFIG_H
 #ifndef DEFCHAN
 #define DEFCHAN "main"
@@ -223,15 +218,6 @@ struct channel_struct {
 #define INFORMATIONAL	  (chan *)-6
 #define DEPARTURE	  (chan *)-5
 
-#define LORIEN_V0173_PASS 10
-/* sha512 hash encoded is 88 chars, plus 20 for the salt */
-#define LORIEN_V0174_PASS 110
-#define LORIEN_VCURR	  0x00000174
-#define LORIEN_V0173_NAME 50
-#define LORIEN_V0174_NAME MAX_NAME
-
-#define MAX_PASS	  LORIEN_V0174_PASS
-
 struct splayer {
 	int seclevel; /* how powerful are they? */
 	int hilite;   /* a mask.  */
@@ -247,7 +233,6 @@ struct splayer {
 	/* stuff that doesn't need to go in the db goes below here */
 	/* for the code to work, dboffset should be the first item in the non-db
 	 * stuff */
-	int free;	   /* 0-> record active, 1->this record is deleted */
 	time_t cameon;	   /* last login time */
 	time_t playerwhen; /* creation date */
 	time_t idle;	   /* number of seconds since player did anything */

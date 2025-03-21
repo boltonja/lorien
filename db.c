@@ -35,6 +35,7 @@
 #include <errno.h>
 #include <lmdb.h>
 #include <string.h>
+#include <sysexits.h>
 
 #include "db.h"
 #include "lorien.h"
@@ -46,7 +47,6 @@
  *
  * But we want the abstraction to be that there is one "loriendb" with
  * separate tables (board, chan, player)
- *
  *
  */
 
@@ -60,48 +60,65 @@ const char *ldb_names[] = {
 	(char *)0,
 };
 
-static void
-ldb_player_to_ram(struct splayer *player, struct ldb_player *ldbp)
-{
-	strncpy(player->name, ldbp->name, sizeof(player->name) - 1);
-	player->name[sizeof(player->name) - 1] = (char)0;
+static
+time_t htobetime(time_t bt) {
+	errno = EINVAL;
 
-	strncpy(player->password, ldbp->password, sizeof(player->password) - 1);
-	player->password[sizeof(player->password) - 1] = (char)0;
+	if (sizeof(time_t) == 8)
+		return (time_t) htobe64((uint64_t) bt);
+	else if (sizeof(time_t) == 4)
+		return (time_t)htobe32((uint32_t) bt);
 
-	strncpy(player->host, ldbp->host, sizeof(player->host) - 1);
-	player->host[sizeof(player->host) - 1] = (char)0;
+	err(EX_DATAERR, "time_t format is unrecognized");
+	return 0; /* NOTREACHED */
+}
 
-	player->seclevel = ldbp->seclevel;
-	player->hilite = ldbp->hilite;
-	player->privs = ldbp->privs;
-	player->wrap = ldbp->wrap;
-	player->flags = ldbp->flags;
-	player->pagelen = ldbp->pagelen;
-	player->playerwhen = ldbp->playerwhen;
-	player->cameon = ldbp->loginwhen;
+static
+time_t betimetoh(time_t ht) {
+	errno = EINVAL;
+
+	if (sizeof(time_t) == 8)
+		return (time_t) be64toh((uint64_t) ht);
+	else if (sizeof(time_t) == 4)
+		return (time_t)be32toh((uint32_t) ht);
+
+	err(EX_DATAERR, "time_t format is unrecognized");
+	return 0; /* NOTREACHED */
 }
 
 static void
-ldb_player_to_media(struct ldb_player *ldbp, struct splayer *player)
+player_from_media(struct splayer *player, struct ldb_player *ldbp)
 {
-	strncpy(ldbp->name, player->name, sizeof(ldbp->name) - 1);
-	ldbp->name[sizeof(ldbp->name) - 1] = (char)0;
+	strlcpy(player->name, ldbp->name, sizeof(player->name));
+	strlcpy(player->password, ldbp->password, sizeof(player->password));
+	strlcpy(player->host, ldbp->host, sizeof(player->host));
 
-	strncpy(ldbp->password, player->password, sizeof(ldbp->password) - 1);
-	ldbp->password[sizeof(ldbp->password) - 1] = (char)0;
+	player->seclevel = be32toh(ldbp->seclevel);
+	player->hilite = be32toh(ldbp->hilite);
+	player->privs = be32toh(ldbp->privs);
+	player->wrap = be32toh(ldbp->wrap);
+	player->flags = be32toh(ldbp->flags);
+	player->pagelen = be32toh(ldbp->pagelen);
+	player->playerwhen = betimetoh(ldbp->created);
+	player->cameon = betimetoh(ldbp->login);
+}
 
-	strncpy(ldbp->host, player->host, sizeof(ldbp->host) - 1);
-	ldbp->host[sizeof(ldbp->host) - 1] = (char)0;
+static void
+player_to_media(struct ldb_player *ldbp, struct splayer *player)
+{
+	memset(ldbp, 0, sizeof(*ldbp));
+	strlcpy(ldbp->name, player->name, sizeof(ldbp->name));
+	strlcpy(ldbp->password, player->password, sizeof(ldbp->password));
+	strlcpy(ldbp->host, player->host, sizeof(ldbp->host));
 
-	ldbp->seclevel = player->seclevel;
-	ldbp->hilite = player->hilite;
-	ldbp->privs = player->privs;
-	ldbp->wrap = player->wrap;
-	ldbp->flags = player->flags;
-	ldbp->pagelen = player->pagelen;
-	ldbp->playerwhen = player->playerwhen;
-	ldbp->loginwhen = player->cameon;
+	ldbp->seclevel = htobe32(player->seclevel);
+	ldbp->hilite = htobe32(player->hilite);
+	ldbp->privs = htobe32(player->privs);
+	ldbp->wrap = htobe32(player->wrap);
+	ldbp->flags = htobe32(player->flags);
+	ldbp->pagelen = htobe32(player->pagelen);
+	ldbp->created = htobetime(player->playerwhen);
+	ldbp->login = htobetime(player->cameon);
 }
 
 int
@@ -169,7 +186,7 @@ ldb_player_delete(struct lorien_db *db, struct splayer *player)
 	if (rc != 0)
 		return rc;
 
-	ldb_player_to_media(&ldbp, player);
+	player_to_media(&ldbp, player);
 	key.mv_data = ldbp.name;
 	key.mv_size = strnlen(ldbp.name, sizeof(ldbp.name));
 	data.mv_data = &ldbp;
@@ -211,12 +228,14 @@ ldb_player_get(struct lorien_db *db, const char *name, size_t namesz,
 		return rc;
 	}
 
+	if (data.mv_size != sizeof(ldbp)) {
+		mdb_txn_abort(txn);
+		return EIO;
+	}
+
 	rc = mdb_txn_commit(txn);
 
-	if (data.mv_size != sizeof(ldbp))
-		return EIO;
-
-	ldb_player_to_ram(player, (struct ldb_player *)data.mv_data);
+	player_from_media(player, (struct ldb_player *)data.mv_data);
 
 	return rc;
 }
@@ -238,7 +257,7 @@ ldb_player_put(struct lorien_db *db, struct splayer *player, bool nooverwrite)
 	if (rc != 0)
 		return rc;
 
-	ldb_player_to_media(&ldbp, player);
+	player_to_media(&ldbp, player);
 	key.mv_data = ldbp.name;
 	key.mv_size = strnlen(ldbp.name, sizeof(ldbp.name));
 	data.mv_data = &ldbp;
