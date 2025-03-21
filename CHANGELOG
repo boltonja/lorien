@@ -1,3 +1,7 @@
+20 Mar 2025 v 1.7.7
+- Database format on media has deterministic endianism
+- Fixed a bug that prevented masks from displaying correctly
+
 8 Nov 2024 v 1.7.6
 - Replaced cleartext passwords with encrypted passwords  using libressl/openssl
 - Removed old-style .qpasswords/.plev, power levels are saved with players now

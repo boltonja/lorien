@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  *
  * The BSD 2-Clause License
  *

@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -63,7 +63,7 @@ size_t MAXCONN;
 #define SUB	 2
 #define REGEX	 4 /* not yet implemented */
 
-#define VERSION	 "1.7.6"      /* the version number. */
+#define VERSION	 "1.7.7"      /* the version number. */
 #define MAXARGS	 4	      /* the maximum number of args on a cmd line */
 
 /* These are the security levels.
