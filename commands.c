@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -1657,7 +1657,12 @@ parse_error
 add_ban(struct splayer *pplayer, char *buf)
 {
 	buf = (char *)skipspace(buf);
-	ban_add(buf);
+	if (!ban_add(buf, pplayer->name, time((time_t *) NULL), true)) {
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> cannot add banlist entry.\r\n");
+		sendtoplayer(pplayer, sendbuf);
+		return PARSERR_SUPPRESS;
+	}
 	snprintf(sendbuf, sizeof(sendbuf), ">> %s added to banlist.\r\n", buf);
 	sendall(sendbuf, ALL, pplayer->s);
 	return PARSE_OK;
@@ -1695,12 +1700,10 @@ hilites(struct splayer *pplayer, char *buf)
 parse_error
 delete_ban(struct splayer *pplayer, char *buf)
 {
-	char *s;
 	buf = (char *)skipspace(buf);
-	s = ban_remove(buf);
-	if (s) {
+	if (ban_remove(buf)) {
 		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %s removed from banlist.\r\n", s);
+		    ">> %s removed from banlist.\r\n", buf);
 		sendall(sendbuf, ALL, pplayer->s);
 	} else
 		sendtoplayer(pplayer, BAN_NOTFOUND);
@@ -1724,7 +1727,8 @@ format_uptime(struct splayer *pplayer)
 parse_error
 add_channel(struct splayer *pplayer, char *buf)
 {
-	new_channelp(buf);
+	snprintf(sendbuf, sizeof(sendbuf), ">> Not implemented.\r\n");
+	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
 

@@ -37,6 +37,7 @@
 #include <string.h>
 #include <sysexits.h>
 
+#include "ban.h"
 #include "db.h"
 #include "lorien.h"
 
@@ -57,6 +58,7 @@ const char *ldb_names[] = {
 	"chan",
 	"message",
 	"player",
+	"ban",
 	(char *)0,
 };
 
@@ -119,6 +121,25 @@ player_to_media(struct ldb_player *ldbp, struct splayer *player)
 	ldbp->pagelen = htobe32(player->pagelen);
 	ldbp->created = htobetime(player->playerwhen);
 	ldbp->login = htobetime(player->cameon);
+}
+
+static void
+ban_from_media(struct ban_item *ban, struct ldb_ban *ldbb)
+{
+	strlcpy(ban->pattern, ldbb->pattern, sizeof(ban->pattern));
+	strlcpy(ban->owner, ldbb->owner, sizeof(ban->owner));
+
+	ban->created = betimetoh(ldbb->created);
+}
+
+static void
+ban_to_media(struct ldb_ban *ldbb, struct ban_item *ban)
+{
+	memset(ldbb, 0, sizeof(*ldbb));
+	strlcpy(ldbb->pattern, ban->pattern, sizeof(ldbb->pattern));
+	strlcpy(ldbb->owner, ban->owner, sizeof(ldbb->owner));
+
+	ldbb->created = htobetime(ban->created);
 }
 
 int
@@ -265,6 +286,121 @@ ldb_player_put(struct lorien_db *db, struct splayer *player, bool nooverwrite)
 
 	rc = mdb_put(txn, db->dbis[LDB_PLAYER], &key, &data,
 	    (nooverwrite) ? MDB_NOOVERWRITE : 0);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+	return rc;
+}
+
+int
+ldb_ban_delete(struct lorien_db *db, struct ban_item *ban)
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+
+	struct ldb_ban ldbb = { 0 };
+	if (!db || !db->db || !ban)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	ban_to_media(&ldbb, ban);
+	key.mv_data = ldbb.pattern;
+	key.mv_size = strnlen(ldbb.pattern, sizeof(ldbb.pattern));
+	data.mv_data = &ldbb;
+	data.mv_size = sizeof(ldbb);
+
+	rc = mdb_del(txn, db->dbis[LDB_BAN], &key, &data);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+
+	return rc;
+}
+
+int
+ldb_ban_scan(struct lorien_db *db,
+	     int (*banfunc)(struct ban_item *))
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+	MDB_cursor *cursor;
+
+	struct ldb_ban ldbb = { 0 };
+	struct ban_item ban = { 0 };
+
+	if (!db || !db->db || !banfunc)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	rc = mdb_cursor_open(txn, db->dbis[LDB_BAN], &cursor);
+	if (rc != 0)
+		goto errtxn;
+
+	rc = mdb_cursor_get(cursor, &key, &data, MDB_FIRST);
+	if (rc != 0)
+		goto errcurs;
+
+	do {
+		if (data.mv_size != sizeof(ldbb)) {
+			rc = EBADMSG;
+			goto errcurs;
+		}
+
+		memcpy(&ldbb, data.mv_data, sizeof(ldbb));
+		ban_from_media(&ban, &ldbb);
+		if (!banfunc(&ban)) {
+			rc = ENOMEM;
+			goto errcurs;
+		}
+
+		rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);
+	} while (rc == 0);
+
+	/* read only transaction, ok to abort on success */
+errcurs:
+	mdb_cursor_close(cursor);
+errtxn:
+	mdb_txn_abort(txn);
+	return rc;
+}
+
+int
+ldb_ban_put(struct lorien_db *db, struct ban_item *ban)
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+
+	struct ldb_ban ldbb = { 0 };
+
+	if (!db || !db->db || !ban)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	ban_to_media(&ldbb, ban);
+	key.mv_data = ldbb.pattern;
+	key.mv_size = strnlen(ldbb.pattern, sizeof(ldbb.pattern));
+	data.mv_data = &ldbb;
+	data.mv_size = sizeof(ldbb);
+
+	rc = mdb_put(txn, db->dbis[LDB_BAN], &key, &data, MDB_NOOVERWRITE);
 	if (rc != 0) {
 		mdb_txn_abort(txn);
 		return rc;

@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -35,142 +35,106 @@
 /* ban.c - banlist capability for Lorien
  */
 
+#include <stdbool.h>
+
 #include "ban.h"
 #include "lorien.h"
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
 
-struct ban_item *bantail;
-struct ban_item *banlist = null(struct ban_item);
+SLIST_HEAD(banlist, ban_item) banhead = SLIST_HEAD_INITIALIZER(banhead);
 
-void
-ban_read_blockfile(void)
+static int bans_read_from_db = 0;
+
+int
+ban_read_cb(struct ban_item *ban)
 {
-	FILE *banfile;
-	char *tmp;
-	char s[BUFSIZE];
-
-	banfile = fopen(BLOCKFILE, "r");
-	if (banfile) {
-		while (!feof(banfile)) {
-			fgets(s, BUFSIZE - 1, banfile);
-			if (!feof(banfile)) {
-				if ((tmp = (char *)strstr(s, "\r")))
-					*tmp = (char)0;
-				if ((tmp = (char *)strstr(s, "\n")))
-					*tmp = (char)0;
-				ban_add(s);
-			}
-		}
-		fclose(banfile);
-	}
-}
-
-struct ban_item *
-ban_findsite(char *s)
-{
-	struct ban_item *tmp;
-
-	tmp = banlist;
-
-	while (tmp) {
-		if (strstr(s, tmp->site) && !tmp->free)
-			return tmp;
-		tmp = tmp->next;
-	};
-	return null(struct ban_item);
-}
-
-struct ban_item *
-ban_findfree()
-{
-	struct ban_item *tmp = banlist;
-
-	while (tmp) {
-		bantail = tmp;
-		if (tmp->free)
-			return tmp;
-		tmp = tmp->next;
-	};
-	return null(struct ban_item);
-}
-
-struct ban_item *
-ban_alloc()
-{
-	struct ban_item *tmp;
-
-	tmp = new (struct ban_item);
-	if (tmp) {
-		tmp->next = null(struct ban_item);
-		tmp->free = 0;
-	}
-
-	return tmp;
-}
-
-struct ban_item *
-ban_init()
-{
-	banlist = ban_alloc();
-	return banlist;
+	bans_read_from_db++;
+	return ban_add(ban->pattern, ban->owner, ban->created, false);
 }
 
 int
-ban_add(char *s)
+ban_read_db(void)
 {
-	struct ban_item *curr;
+	(void)ldb_ban_scan(&lorien_db, ban_read_cb);
+	return bans_read_from_db;
+}
 
-	if ((curr = ban_findsite(s)))
-		return 1;
+bool
+ban_findsite(char *s)
+{
+	struct ban_item *target = NULL;
+	struct ban_item *curr = NULL;
 
-	if (!banlist)
-		curr = ban_init();
-	else if ((curr = ban_findfree()))
-		curr->free = 0;
-	else {
-		curr = ban_alloc();
-		bantail->next = curr;
-	}
+	SLIST_FOREACH(curr, &banhead, entries)
+		if (strstr(s, curr->pattern)) {
+			target = curr;
+			break;
+		}
+
+	return target ? true : false;
+}
+
+int
+ban_add(const char *s, const char *owner, time_t created, bool save_ban)
+{
+	struct ban_item *curr = malloc(sizeof(struct ban_item));
 
 	if (curr) {
-		strncpy(curr->site, s, sizeof(curr->site) - 1);
-		curr->site[sizeof(curr->site) - 1] = 0;
+		strlcpy(curr->pattern, s, sizeof(curr->pattern));
+		strlcpy(curr->owner, owner, sizeof(curr->owner));
+		curr->created = created;
+
+		if (save_ban) {
+			int rc = ldb_ban_put(&lorien_db, curr);
+			if (rc != 0) {
+				free(curr);
+				curr = NULL;
+				goto out;
+			}
+		}
+		SLIST_INSERT_HEAD(&banhead, curr, entries);
 	}
 
+out:
 	return (curr) ? 1 : 0;
 }
 
-char *
+int
 ban_remove(char *s)
 {
-	struct ban_item *tmp;
-	tmp = ban_findsite(s);
+	struct ban_item *curr = NULL;
+	struct ban_item *tmp = NULL;
+	int found = 0;
 
-	if (tmp) {
-		tmp->free = 1;
-		return tmp->site;
-	}
-	return (char *)0;
+	SLIST_FOREACH_SAFE(curr, &banhead, entries, tmp)
+		if (!strncmp(curr->pattern, s, sizeof(curr->pattern) - 1)) {
+			int rc = ldb_ban_delete(&lorien_db, curr);
+			if (!rc) {
+				SLIST_REMOVE(&banhead, curr, ban_item, entries);
+				found = 1;
+			}
+			break;
+		}
+
+	return found;
 }
 
 parse_error
 ban_list(struct splayer *who)
 {
 	char sendbuf[OBUFSIZE];
-	struct ban_item *tmp = banlist;
+	struct ban_item *curr = NULL;
 
 	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> The following sites are banned:\r\n");
+	    ">> The following patterns are banned:\r\n");
 	sendtoplayer(who, sendbuf);
-	while (tmp) {
-		if (!tmp->free) {
-			snprintf(sendbuf, sizeof(sendbuf), ">> %s\r\n",
-			    tmp->site);
+
+	SLIST_FOREACH(curr, &banhead, entries) {
+		snprintf(sendbuf, sizeof(sendbuf), ">> %s\r\n", curr->pattern);
 			sendtoplayer(who, sendbuf);
-		}
-		tmp = tmp->next;
 	}
+
 	return PARSE_OK;
 }

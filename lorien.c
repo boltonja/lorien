@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -44,7 +44,6 @@
 
 #define _LORIEN_C_
 
-#include "ban.h"
 #include "chat.h"
 #include "log.h"
 #include "lorien.h"
@@ -64,8 +63,6 @@ main(int argc, char **argv)
 	lorien_boot_time = get_timestamp();
 
 	handleargs(argc, argv + 1);
-
-	ban_read_blockfile();
 
 	doit(port);
 

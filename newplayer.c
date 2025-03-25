@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -197,7 +197,6 @@ newchannel(char *name)
 	newchan->secure = 0;
 	newchan->visited = 0;
 	newchan->persistent = 0;
-	newchan->bulletins = NULL;
 	strncpy(newchan->name, name, MAX_CHAN);
 
 	newchan->name[MAX_CHAN] = 0;
@@ -254,100 +253,6 @@ remove_channel(chan *channel)
 		abort(1);
 	}
 #endif
-}
-
-/* remove a persistent channel */
-void
-remove_channelp(chan *channel)
-{
-	if (channel) {
-		if (channel->bulletins) {
-			ring_destroy(channel->bulletins);
-			channel->bulletins = NULL;
-		}
-	}
-
-	channel->persistent = 0;
-
-	remove_channel(channel);
-	/* dump the persistent channel list to the cache here */
-}
-
-/* make a new persistent channel
- * or make an existing channel persistent
- */
-chan *
-new_channelp(char *channel)
-{
-	chan *thechan;
-	char *quotap;
-	int quota = 20; /* default to 20 posts */
-	struct ring_buffer *newbulletins = NULL;
-
-	quotap = strchr(channel, ',');
-	if (quotap) {
-		*quotap = 0;
-		quotap++;
-		quota = atoi(quotap);
-	}
-
-	if (!(thechan = findchannel(channel)))
-		thechan = newchannel(channel);
-
-	if (thechan) {
-		if (thechan->persistent) {
-			/* the channel was already persistent
-			 * maybe we are changing quota?
-			 */
-			if (thechan->bulletins) {
-				/* copy existing bulletins, if any, to new ring
-				 */
-				if (thechan->quota != quota) {
-					newbulletins = ring_new(quota,
-					    OBUFSIZE);
-					if (newbulletins) {
-						ring_copy(newbulletins,
-						    thechan->bulletins);
-						ring_destroy(
-						    thechan->bulletins);
-						thechan->bulletins =
-						    newbulletins;
-						thechan->quota = quota;
-						journal_channel(channel,
-						    quotap);
-						/* bug: should journal quota for
-						 * board */
-					} else {
-						snprintf(sendbuf,
-						    sizeof(sendbuf),
-						    "bulletin resize fail, quota %d\n",
-						    quota);
-						log_msg(sendbuf);
-						return NULL; /* couldn't get
-								resources */
-					}
-				}
-			}
-		} else {
-			/* new (or newly persistent) channel */
-			thechan->bulletins = ring_new(quota, OBUFSIZE);
-			if (thechan->bulletins) {
-				thechan->persistent = 1;
-				thechan->quota = quota;
-				journal_channel(channel, quotap);
-			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
-				    "bulletin alloc fail, quota %d\n", quota);
-				log_msg(sendbuf);
-				/* if it was empty and not already persistent,
-				 * remove it */
-				if (!thechan->count)
-					remove_channel(thechan);
-				return NULL;
-			}
-		}
-	}
-	return thechan;
 }
 
 void
@@ -516,8 +421,9 @@ processinput(struct splayer *pplayer)
 		if (!(pplayer->privs & CANPLAY)) {
 			snprintf(sendbuf, sizeof(sendbuf), "spammer %s: %s\n",
 			    pplayer->host, line);
-			log_msg(sendbuf);
 			handlecommand(pplayer, line);
+			if (!(pplayer->privs & CANPLAY))
+				log_msg(sendbuf);
 			continue;
 		}
 

@@ -39,12 +39,16 @@
 #define OBUFSIZE BUFSIZE + 80 /* bigger so formatting can occur. */
 #define HNAMELEN 80	      /* maximum host name length */
 
-/* sha512 hash encoded is 88 chars, plus 20 for the salt */
-#define LORIEN_V0174_PASS 110
-#define LORIEN_DBVERSION  0x00000174
+/* arbitrary limits informed by hysterical raisins (historical reasons) */
 #define LORIEN_V0174_NAME 50
 #define LORIEN_V0174_CHAN 13
-#define LORIEN_V0174_DESC 240
+#define LORIEN_V0178_DESC 240
+
+/* sha512 hash encoded is 88 chars, plus 20 for the salt */
+#define LORIEN_V0174_PASS 110
+
+/* RFC 1035 says dns names are limited to 255 characters, we add a NUL */
+#define LORIEN_V0178_BAN 256
 
 #define MAX_PASS LORIEN_V0174_PASS
 #define MAX_NAME LORIEN_V0174_NAME
@@ -55,6 +59,7 @@ typedef enum {
 	LDB_CHAN,
 	LDB_MSG,
 	LDB_PLAYER,
+	LDB_BAN,
 	LDB_MAX,
 } ldb_type;
 
@@ -81,7 +86,7 @@ struct ldb_chan {
 
 	/* data */
 	char owner[LORIEN_V0174_NAME];
-	char desc[LORIEN_V0174_DESC];
+	char desc[LORIEN_V0178_DESC];
 	time_t created;
 };
 
@@ -92,7 +97,7 @@ struct ldb_board {
 	/* data */
 	char owner[LORIEN_V0174_NAME];
 	time_t created;		    /* created */
-	char desc[LORIEN_V0174_DESC];
+	char desc[LORIEN_V0178_DESC];
 };
 
 struct ldb_msg {
@@ -104,6 +109,16 @@ struct ldb_msg {
 	/* data */
 	time_t created;
 	char text[BUFSIZE];
+};
+
+struct ldb_ban {
+	/* key */
+	char pattern[LORIEN_V0178_BAN];
+
+	/* data */
+	int regex;     /* not yet supported */
+	char owner[LORIEN_V0174_NAME];
+	time_t created;
 };
 
 struct lorien_db {
@@ -125,5 +140,11 @@ int ldb_player_get(struct lorien_db *db, const char *name, size_t namesz,
     struct splayer *player);
 int ldb_player_put(struct lorien_db *db, struct splayer *player,
     bool nooverwrite);
+
+struct ban_item;
+
+int ldb_ban_delete(struct lorien_db *db, struct ban_item *ban);
+int ldb_ban_put(struct lorien_db *db, struct ban_item *ban);
+int ldb_ban_scan(struct lorien_db *db, int (*banfunc)(struct ban_item *));
 
 #endif /* _LORIENDB_H_ */

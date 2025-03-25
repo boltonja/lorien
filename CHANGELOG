@@ -1,3 +1,10 @@
+v 1.7.8
+- Moved ban entries to lorien.db
+- Replaced buggy singly linked ban list with SLIST from queue(3)
+- Fixed a bug that could orphan ban list entries and leak memory
+- Removed vestigial persistent channel and bulletin code
+- Removed a password leak in the anti-spam code
+
 20 Mar 2025 v 1.7.7
 - Database format on media has deterministic endianism
 - Fixed a bug that prevented masks from displaying correctly

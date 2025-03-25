@@ -1,3 +1,33 @@
+/*
+ * Copyright 2024,2025 Jillian Alana Bolton
+ *
+ * The BSD 2-Clause License
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     1. Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *     2. Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
@@ -7,6 +37,7 @@
 #include <sysexits.h>
 #include <time.h>
 
+#include "ban.h"
 #include "db.h"
 #include "lorien.h"
 #include "newplayer.h"
@@ -16,42 +47,18 @@ const char usage[] = "usage:\n"
 		     "\tdbtool player (add|auth|update) <player> <password>\n"
 	             "\tdbtool player get <player>\n"
 	             "\tdbtool player list\n"
-	             "\tdbtool player level <player> <level>\n";
+	             "\tdbtool player level <player> <level>\n"
+	"\tdbtool ban (add|del) <pattern>\n"
+	"\tdbtool ban list\n";
 
 size_t MAXCONN;
 time_t lorien_boot_time;
 
-int
-main(int argc, char *argv[])
+void
+handle_player(int argc, char *argv[], int argindex)
 {
 	struct splayer p;
 	int rc;
-	int argindex = 1;
-
-	printf("argc %d\n", argc);
-	initplayerstruct();
-	players->s = 1; /* stdout */
-
-	if (argc < 2) {
-		errno = EINVAL;
-		err(EX_USAGE, usage);
-	}
-
-	strncpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname) - 1);
-	lorien_db.dbname[sizeof(lorien_db.dbname) - 1] = (char)0;
-
-	rc = ldb_open(&lorien_db);
-	if (rc != 0) {
-		errno = rc;
-		err(EX_IOERR, "can't open db");
-	}
-
-	if (strcmp("player", argv[argindex])) {
-		errno = EINVAL;
-		err(EX_USAGE, usage);
-	}
-
-	argindex++;
 
 	if (!strcmp("auth", argv[argindex])) {
 		char *name = argv[argindex + 1];
@@ -202,6 +209,102 @@ main(int argc, char *argv[])
 		errno = EINVAL;
 		err(EX_USAGE, usage);
 	}
+}
+
+int
+print_ban_cb(struct ban_item *ban)
+{
+	char buf[50];
+
+	/* ctime_r(3) includes a newline */
+	printf("ban: %s owner: %s created: %s", ban->pattern, ban->owner,
+	       ctime_r(&ban->created, buf));
+	return 1;
+}
+
+void
+handle_ban(int argc, char *argv[], int argindex)
+{
+	struct ban_item ban = { 0 };
+	int rc = 0;
+
+	argc--;
+
+	if (!strcmp("add", argv[argindex])) {
+		if (argc != 3) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		strlcpy(ban.pattern, argv[++argindex], sizeof(ban.pattern));
+		strlcpy(ban.owner, "dbtool", sizeof(ban.owner));
+		ban.created = time((time_t *) NULL);
+		rc = ldb_ban_put(&lorien_db, &ban);
+		if (rc == MDB_KEYEXIST) {
+			errno = rc;
+			warn("ban %s already exists", ban.pattern);
+		} else if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, "cannot create ban %s", ban.pattern);
+		}
+	} else if (!strcmp("delete", argv[argindex])) {
+		if (argc != 3) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		strlcpy(ban.pattern, argv[++argindex], sizeof(ban.pattern));
+		rc = ldb_ban_delete(&lorien_db, &ban);
+		if (rc == MDB_NOTFOUND) {
+			errno = rc;
+			warn(">> ban %s not found", ban.pattern);
+		} else if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, ">> can't delete ban %s", ban.pattern);
+		}
+	} else if (!strcmp("list", argv[argindex])) {
+		if (argc != 2) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		ldb_ban_scan(&lorien_db, print_ban_cb);
+	} else {
+		errno = EINVAL;
+		err(EX_USAGE, usage);
+	}
+}
+
+int
+main(int argc, char *argv[])
+{
+	int rc;
+	int argindex = 1;
+
+	printf("argc %d\n", argc);
+	initplayerstruct();
+	players->s = 1; /* stdout */
+
+	if (argc < 2) {
+		errno = EINVAL;
+		err(EX_USAGE, usage);
+	}
+
+	strncpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname) - 1);
+	lorien_db.dbname[sizeof(lorien_db.dbname) - 1] = (char)0;
+
+	rc = ldb_open(&lorien_db);
+	if (rc != 0) {
+		errno = rc;
+		err(EX_IOERR, "can't open db");
+	}
+
+	if (!strcmp("player", argv[argindex]))
+		handle_player(argc, argv, ++argindex);
+	else if (!strcmp("ban", argv[argindex]))
+		handle_ban(argc, argv, ++argindex);
+	else {
+		errno = EINVAL;
+		err(EX_USAGE, usage);
+	}
 
 	ldb_close(&lorien_db);
+	exit(EXIT_SUCCESS);
 }

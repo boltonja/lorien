@@ -63,7 +63,7 @@ size_t MAXCONN;
 #define SUB	 2
 #define REGEX	 4 /* not yet implemented */
 
-#define VERSION	 "1.7.7"      /* the version number. */
+#define VERSION	 "1.7.8"      /* the version number. */
 #define MAXARGS	 4	      /* the maximum number of args on a cmd line */
 
 /* These are the security levels.
@@ -193,21 +193,22 @@ enum player_privs {
 #define USAGE \
 	"USAGE: lorien [-l file] [-d] portnumber\nusually just: lorien -d 2525\n"
 
-#define null(p) (p *)0
-#define new(p)	(p *)malloc(sizeof(p))
-
 #define chan	struct channel_struct
 extern time_t lorien_boot_time;
 
 struct channel_struct {
 	char name[MAX_CHAN + 1]; /* 11th is null character */
+	char owner[LORIEN_V0174_NAME];
+	char desc[LORIEN_V0178_DESC];
+	time_t created;
+
+	/* stuff that doesn't need to go in the db goes below here */
+
 	int secure;
 	int visited;
 	int count;
 	int persistent;
-	int quota; /* the maximum size of the bulletin board, in entries */
 	chan *next;
-	struct ring_buffer *bulletins;
 };
 
 /* types for who list */
@@ -230,9 +231,9 @@ struct splayer {
 	char host[MAX_NAME];	 /* where they are really on from */
 	char numhost[MAX_NAME];	 /* numeric address as text decimal octets */
 	char password[MAX_PASS]; /* the players password */
+
 	/* stuff that doesn't need to go in the db goes below here */
-	/* for the code to work, dboffset should be the first item in the non-db
-	 * stuff */
+
 	time_t cameon;	   /* last login time */
 	time_t playerwhen; /* creation date */
 	time_t idle;	   /* number of seconds since player did anything */

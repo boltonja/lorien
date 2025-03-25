@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -44,6 +44,7 @@
 
 #include <err.h>
 
+#include "ban.h"
 #include "db.h"
 #include "files.h"
 #include "lorien.h"
@@ -76,6 +77,9 @@ doit(int port)
 		err(rc, "lmdb can't open %s\r\n", lorien_db.dbname);
 		return 1; /* NOTREACHED */
 	}
+
+	rc = ban_read_db();
+	fprintf(stderr, "read %d bans from database\n", rc);
 
 #ifdef _MSC_VER
 	{

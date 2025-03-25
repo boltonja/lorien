@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -36,19 +36,24 @@
 #ifndef _BAN_H_
 #define _BAN_H_
 
+#include <sys/queue.h>
+#include <stdbool.h>
+
+#include "db.h"
 #include "parse.h"
 
 struct ban_item {
-	struct ban_item *next;
-	char site[BUFSIZE];
-	int free;
+	SLIST_ENTRY(ban_item) entries;
+	char pattern[LORIEN_V0178_BAN];
+	char owner[LORIEN_V0174_NAME];
+	time_t created;
 };
 
-int ban_add(char *s);
-struct ban_item *ban_findsite(char *s);
+int ban_add(const char *s, const char *owner, time_t created, bool save_ban);
+bool ban_findsite(char *s);
 parse_error ban_list(struct splayer *who);
-void ban_read_blockfile(void);
-char *ban_remove(char *s);
+int ban_read_db(void);
+int ban_remove(char *s);
 
 #ifndef _BAN_C_
 extern struct ban_item *banlist;
