@@ -55,8 +55,4 @@ parse_error ban_list(struct splayer *who);
 int ban_read_db(void);
 int ban_remove(char *s);
 
-#ifndef _BAN_C_
-extern struct ban_item *banlist;
-#endif
-
 #endif
