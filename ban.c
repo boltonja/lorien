@@ -105,18 +105,21 @@ int
 ban_remove(char *s)
 {
 	struct ban_item *curr = NULL;
-	struct ban_item *tmp = NULL;
 	int found = 0;
 
-	SLIST_FOREACH_SAFE(curr, &banhead, entries, tmp)
+	SLIST_FOREACH(curr, &banhead, entries)
 		if (!strncmp(curr->pattern, s, sizeof(curr->pattern) - 1)) {
-			int rc = ldb_ban_delete(&lorien_db, curr);
-			if (!rc) {
-				SLIST_REMOVE(&banhead, curr, ban_item, entries);
-				found = 1;
-			}
+			found = 1;
 			break;
 		}
+
+	if (found) {
+		int rc = ldb_ban_delete(&lorien_db, curr);
+		if (!rc)
+			SLIST_REMOVE(&banhead, curr, ban_item, entries);
+		else
+			found = 0;
+	}
 
 	return found;
 }

@@ -63,7 +63,7 @@ size_t MAXCONN;
 #define SUB	 2
 #define REGEX	 4 /* not yet implemented */
 
-#define VERSION	 "1.7.8"      /* the version number. */
+#define VERSION	 "1.7.8b1"      /* the version number. */
 #define MAXARGS	 4	      /* the maximum number of args on a cmd line */
 
 /* These are the security levels.
