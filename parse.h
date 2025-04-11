@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -33,6 +33,8 @@
 
 #ifndef _PARSE_H_
 #define _PARSE_H_
+
+#include <stdbool.h>
 
 #include "lorien.h"
 #include "trie.h"
@@ -181,7 +183,7 @@ struct parse_key { /* maps text tokens to commands */
 };
 
 struct parse_context {
-	int isdynamic;
+	bool isdynamic;
 	size_t numentries;
 	/*     struct parse_key *table; */
 	trie *index;
@@ -203,7 +205,7 @@ struct parse_context *parser_new_dyncontext(struct command *commands);
 int parser_collapse_dyncontext(struct parse_context *context);
 
 int parser_init_context(struct parse_context *context, struct parse_key *table,
-    struct command *commands, int isdynamic);
+    struct command *commands, bool isdynamic);
 
 int parser_count_table_entries(struct parse_key *table);
 

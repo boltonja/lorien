@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -31,6 +31,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,8 +59,9 @@ parser_search_table(struct parse_context *context, char *pattern,
 {
 	trie *leaf;
 
-	leaf = trie_match(context->index, (unsigned char *)pattern, matched,
-	    trie_keymatch_substring_first);
+	leaf = trie_match(context->index, (unsigned char *)pattern,
+			  strlen(pattern), matched,
+			  trie_keymatch_substring_first);
 
 	return (leaf) ? leaf->payload : NULL;
 }
@@ -70,7 +72,8 @@ parser_add_to_context(struct parse_context *context, struct parse_key *key)
 	if (!(context && key && context->commands && context->index))
 		return 0;
 
-	if (trie_add(context->index, (unsigned char *)key->token, key, NULL)) {
+	if (trie_add(context->index, (unsigned char *)key->token,
+		     strlen(key->token), key, NULL)) {
 		context->numentries++;
 		return 1;
 	} else
@@ -87,7 +90,7 @@ parser_new_dyncontext(struct command *commands)
 	if (ctxp) {
 		if ((ctxp->index = trie_new())) {
 			ctxp->numentries = 0;
-			ctxp->isdynamic = 1;
+			ctxp->isdynamic = true;
 			ctxp->commands = commands;
 		} else {
 			free(ctxp);
@@ -109,7 +112,7 @@ parser_collapse_dyncontext(struct parse_context *context)
 	if (!context || !context->isdynamic)
 		return 0;
 
-	trie_collapse(context->index, 1);
+	trie_collapse(context->index, true);
 	memset(context, 0, sizeof(*context));
 	free(context);
 
@@ -136,7 +139,7 @@ parser_count_table_entries(struct parse_key *table)
  */
 int
 parser_init_context(struct parse_context *context, struct parse_key *table,
-    struct command *commands, int isdynamic /* 1 for yes, 2 for static */)
+    struct command *commands, bool isdynamic)
 {
 	struct parse_key *tp;
 
@@ -147,8 +150,8 @@ parser_init_context(struct parse_context *context, struct parse_key *table,
 		return 0;
 
 	for (tp = table; tp->token[0]; tp++) {
-		if (!trie_add(context->index, (unsigned char *)tp->token, tp,
-			NULL /* status */)) {
+		if (!trie_add(context->index, (unsigned char *)tp->token,
+			      strlen(tp->token), tp, NULL /* status */)) {
 			trie_collapse(context->index, isdynamic);
 			context->index = NULL;
 			return 0;
