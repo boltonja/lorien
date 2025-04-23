@@ -50,16 +50,17 @@
 #include "lorien.h"
 #include "newplayer.h"
 #include "platform.h"
-#include "servsock.h"
+#include "servsock_ssl.h"
 #include "utility.h"
 
 char recvbuf[BUFSIZE];
 char sendbuf[OBUFSIZE];
 
-int s; /* our initial socket */
+struct servsock_handle *handle = NULL; /* non-ssl listener */
+struct servsock_handle *sslhandle = NULL; /* ssl listener */
 
 int
-doit(int port)
+doit(int port, int sslport)
 {
 	fd_set needread; /* for seeing which fds we need to read from */
 	int num;	 /* the number of needy fds */
@@ -100,11 +101,19 @@ doit(int port)
 		exit(2);
 	}
 
-	fprintf(stderr, "Establishing a socket on %s on port %d...\n", sendbuf,
-	    port);
+	if (port) {
+		fprintf(stderr, "Establishing socket on %s on port %d...\n",
+			sendbuf, port);
+		handle = getsock_ssl(sendbuf, port, false);
+		fprintf(stderr, "Socket established on port %d.\n", port);
+	}
 
-	s = getsock(sendbuf, port);
-	fprintf(stderr, "Socket established for Lorien on port %d.\n", port);
+	if (sslport) {
+		fprintf(stderr, "Establishing socket on %s on port +%d...\n",
+			sendbuf, sslport);
+		sslhandle = getsock_ssl(sendbuf, sslport, true);
+		fprintf(stderr, "Socket established on +port %d.\n", sslport);
+	}
 
 	MAXCONN = gettablesize();
 
@@ -113,10 +122,15 @@ doit(int port)
 
 	while (1) {
 		FD_ZERO(&needread);
-		FD_SET(s, &needread);
+		if (handle)
+			FD_SET(handle->sock, &needread);
+		if (sslhandle)
+			FD_SET(sslhandle->sock, &needread);
 		max = setfds(&needread);
-		if (s > max)
-			max = s;
+		if (handle && (handle->sock > max))
+			max = handle->sock;
+		if (sslhandle && (sslhandle->sock > max))
+			max = sslhandle->sock;
 
 		if ((num = select(max + 1, &needread, (fd_set *)0, (fd_set *)0,
 			 (struct timeval *)0)) == -1) {
@@ -127,8 +141,13 @@ doit(int port)
 				continue; /* do it again and get it right */
 		}
 
-		if (FD_ISSET(s, &needread))
-			if (newplayer(s) == -1)
+		if (handle && FD_ISSET(handle->sock, &needread))
+			if (newplayer(handle) == -1)
+				fprintf(stderr,
+				    "lorien: ran out of file descriptors!\n");
+
+		if (sslhandle && FD_ISSET(sslhandle->sock, &needread))
+			if (newplayer(sslhandle) == -1)
 				fprintf(stderr,
 				    "lorien: ran out of file descriptors!\n");
 

@@ -43,6 +43,11 @@ Dave Mott          (Energizer Rabbit)
 
 */
 
+#include <assert.h>
+#include <err.h>
+#include <iconv.h>
+#include <sysexits.h>
+
 #include "ban.h"
 #include "commands.h"
 #include "journal.h"
@@ -52,7 +57,7 @@ Dave Mott          (Energizer Rabbit)
 #include "parse.h"
 #include "platform.h"
 #include "ring.h"
-#include "servsock.h"
+#include "servsock_ssl.h"
 
 #define level(p, w) \
 	((PLAYER_HAS(SHOW, p) || w->seclevel >= p->seclevel) ? p->seclevel : 1)
@@ -84,6 +89,12 @@ char *player_privs_names[16] = {
 	NULL,
 	NULL,
 };
+
+void
+player_removegag(struct splayer *pplayer, struct splayer *target)
+{
+	FD_CLR(player_getline(target), &pplayer->gags);
+}
 
 int
 numconnected()
@@ -281,16 +292,24 @@ playerinit(struct splayer *who, time_t when, char *where, char *numwhere)
 }
 
 int
-newplayer(int s)
+player_getline(struct splayer *pplayer)
 {
-	int sock;
+	if (!pplayer || !pplayer->h)
+		return -1;
+	return pplayer->h->sock;
+}
+
+int
+newplayer(struct servsock_handle *ssh)
+{
+	struct servsock_handle *h;
 	struct splayer *buf;
 	time_t tmptime;
 
-	sock = acceptcon(s, players->host, sizeof(players->host),
+	h = acceptcon_ssl(ssh, players->host, sizeof(players->host),
 	    players->numhost, sizeof(players->numhost), &players->port);
-	if (sock < 0)
-		return (-1);
+	if (!h)
+		return -1;
 
 	/* find the tail of the linked list of players */
 
@@ -309,8 +328,8 @@ newplayer(int s)
 
 		snprintf(sendbuf, sizeof(sendbuf),
 		    ">> Unable to allocate memory for player record.\r\n");
-		(void)outtosock(sock, sendbuf);
-		(void)close(sock);
+		(void)outtosock_ssl(h, sendbuf);
+		(void)closesock_ssl(h);
 
 		/* not fatal should let others continue to chat */
 		return -1;
@@ -322,7 +341,7 @@ newplayer(int s)
 	tmptime = time((time_t *)0);
 	buf = buf->next;
 	playerinit(buf, tmptime, players->host, players->numhost);
-	buf->s = sock;
+	buf->h = h;
 
 #ifndef NO_LOG_CONNECT
 	snprintf(sendbuf, sizeof(sendbuf),
@@ -336,7 +355,7 @@ newplayer(int s)
 	numconnect++;
 	welcomeplayer(buf);
 
-	return buf->s;
+	return player_getline(buf);
 }
 
 void
@@ -353,7 +372,7 @@ resetgags(int line)
 }
 
 void
-sendall(char *message, chan *channel, int line)
+sendall(char *message, chan *channel, struct splayer *who)
 {
 	struct splayer *buf, *before;
 
@@ -371,15 +390,14 @@ sendall(char *message, chan *channel, int line)
 			if (PLAYER_HAS(MSG, buf))
 				sendtoplayer(buf, message);
 		} else if (channel == DEPARTURE) {
-			if (buf->s == line)
+			if (buf->h->sock == who->h->sock)
 				before->next = buf->next;
 			else {
 				/* Un-gag the leaving player for the player we
 				 * are processing. */
-
-				FD_CLR(line, &buf->gags);
-				if (buf->dotspeeddial == line)
-					buf->dotspeeddial = 0;
+				player_removegag(buf, who);
+				if (buf->dotspeeddial == who)
+					buf->dotspeeddial = NULL;
 
 				if (PLAYER_HAS(MSG, buf))
 					sendtoplayer(buf, message);
@@ -398,9 +416,9 @@ setfds(fd_set *needread)
 	pplayer = players;
 	while (pplayer->next != (struct splayer *)0) {
 		pplayer = pplayer->next;
-		if (pplayer->s > max)
-			max = pplayer->s;
-		FD_SET(pplayer->s, needread);
+		if (pplayer->h->sock > max)
+			max = pplayer->h->sock;
+		FD_SET(pplayer->h->sock, needread);
 	}
 	return max;
 }
@@ -452,15 +470,13 @@ handleinput(fd_set needread)
 			continue;
 		}
 
-		if (FD_ISSET(pplayer->s, &needread)) {
+		if (FD_ISSET(pplayer->h->sock, &needread)) {
 			/* check to see if they disconnected */
 
-			if (recvfromplayer(pplayer, recvbuf, BUFSIZE) == -1) {
+			if (recvfromplayer(pplayer) == -1) {
 				removeplayer(pplayer);
 				continue;
 			}
-
-			recvbuf[BUFSIZE - 1] = 0; /* ensure end of buffer. */
 
 			/* now we have some data. */
 
@@ -468,16 +484,6 @@ handleinput(fd_set needread)
 			bufptr = strchr(pplayer->pbuf, (char)0);
 
 			while (*iptr) {
-				if (strlen(pplayer->pbuf) >= BUFSIZE) {
-					sendtoplayer(pplayer,
-					    ">> fatal:  %d byte buffer overrun.\r\n");
-					recvbuf[0] = 0;
-
-					bufptr = pplayer->pbuf;
-					removeplayer(pplayer);
-					break;
-				}
-
 				if (*iptr == '\r' || *iptr == '\n') {
 					while (*iptr == '\r' || *iptr == '\n')
 						iptr++;
@@ -496,26 +502,7 @@ handleinput(fd_set needread)
 
 					bufptr = pplayer->pbuf;
 				} else {
-					/* It's time to get rid of the caps, if
-					 * necessary. */
-
-					if (isascii(*iptr) && isprint(*iptr)) {
-						if (!(pplayer->privs & CANCAPS))
-							*bufptr++ = tolower(
-							    *iptr);
-						else
-							*bufptr++ = *iptr;
-					}
-#ifndef NO_UTF_8
-					/* without UTF-8 support we used to
-					 * strip out non-ascii and
-					 * non-printables
-					 */
-					else {
-						*bufptr++ = *iptr;
-					}
-#endif
-					iptr++;
+						*bufptr++ = *iptr++;
 				}
 			}
 		}
@@ -536,17 +523,15 @@ removeplayer(struct splayer *player)
 	}
 
 	snprintf(sendbuf, sizeof(sendbuf), ">> line %d(%s) just left.\r\n",
-	    player->s, player->name);
+	    player_getline(player), player->name);
 
-	if ((player->s <= (MAXCONN - 3))) {
+	if ((player_getline(player) <= (MAXCONN - 3))) {
 		PLAYER_SET(LEAVING, player);
 		if (player->privs & CANPLAY)
-			sendall(sendbuf, DEPARTURE, player->s);
+			sendall(sendbuf, DEPARTURE, player);
 	}
 
-	shutdown(player->s, 2);
-
-	(void)close(player->s);
+	closesock_ssl(player->h);
 
 	if (player->prev)
 		player->prev->next = player->next;
@@ -591,10 +576,11 @@ wholist(struct splayer *pplayer, char *instring)
 
 	while (buf) {
 		match = 0;
+		int line = player_getline(buf);
 		if (target) {
-			snprintf(sendbuf, sizeof(sendbuf), "%d", buf->s);
+			snprintf(sendbuf, sizeof(sendbuf), "%d", line);
 			if (atoi(target) && !strchr(target, '.')) {
-				if (atoi(target) == buf->s)
+				if (atoi(target) == line)
 					match = 1;
 			} else if (strstr(buf->name, target) ||
 			    strstr(buf->onfrom, target) ||
@@ -610,7 +596,7 @@ wholist(struct splayer *pplayer, char *instring)
 		    "%c%c%-2d %-27.27s %-13.13s %-6s %-25.25s\r\n",
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ',
 		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ',
-		    buf->s, buf->name, buf->chnl ? (buf->chnl->name) : " ",
+		    line, buf->name, buf->chnl ? (buf->chnl->name) : " ",
 		    idlet(buf->idle), buf->onfrom);
 
 		if ((!target) || (target && match)) {
@@ -666,11 +652,12 @@ wholist2(struct splayer *pplayer, char *instring)
 	sendtoplayer(pplayer, LINE);
 
 	while (buf) {
+		int line = player_getline(buf);
 		match = 0;
 		if (target) {
-			snprintf(sendbuf, sizeof(sendbuf), "%d", buf->s);
+			snprintf(sendbuf, sizeof(sendbuf), "%d", line);
 			if (atoi(target) && !strchr(target, '.')) {
-				if (atoi(target) == buf->s)
+				if (atoi(target) == line)
 					match = 1;
 			} else if (strstr(buf->name, target) ||
 			    strstr(sendbuf, target) ||
@@ -682,7 +669,7 @@ wholist2(struct splayer *pplayer, char *instring)
 		    "%c%c%-2d %-26.262s %-8s %-8s %-15.15s %-8d ",
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ',
 		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ',
-		    buf->s, buf->name, timelet(buf->cameon, 2),
+		    line, buf->name, timelet(buf->cameon, 2),
 		    vrfy[PLAYER_HAS(VRFY, buf) ? 1 : 0], buf->numhost,
 		    buf->port);
 
@@ -723,7 +710,8 @@ wholist3(struct splayer *pplayer)
 	sendtoplayer(pplayer, LINE);
 
 	while (buf) {
-		snprintf(sendbuf, sizeof(sendbuf), "%2d%c)%-14.14s", buf->s,
+		int line = player_getline(buf);
+		snprintf(sendbuf, sizeof(sendbuf), "%2d%c)%-14.14s", line,
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ', buf->name);
 		sendtoplayer(pplayer, sendbuf);
 		count++;
@@ -750,49 +738,109 @@ wholist3(struct splayer *pplayer)
 	return PARSE_OK;
 }
 
-/* in 8-bit latin1 / ascii, valid printables are 0x20-0x7e and 0xa1-0xff
- * we can't necessarily rely on lib functions because we might be running
- * in a strange locale, but we assume clients use latin1, ascii or utf-8
- * which we limit to the printables that can be represented in only 8 bits
- */
-#define isunclean(who, c) \
-	(!(((c > 0x1fU) && (c < 0x7fU)) || ((c > 0xa0U) && (c <= 255U))))
+static char badchars[] = {
+	0x01, /* SOH */
+	0x02, /* STX */
+	0x03, /* ETX aka ^D aka EOF */
+	0x04, /* EOT */
+	0x05, /* ENQ */
+	0x06, /* ACK */
+	0x07, /* BEL */
+	0x08, /* BS */
+	/* 0x09, HT */
+	/* 0x0a, LF */
+	0x0b, /* VT */
+	0x0c, /* FF */
+	/* 0x0d, CR */
+	0x0e, /* SO */
+	0x0f, /* SI */
+	0x10, /* DLE */
+	0x11, /* DC1 aka ^Q */
+	0x12, /* DC2 */
+	0x13, /* DC3 aka ^S */
+	0x14, /* DC4 */
+	0x15, /* NAK */
+	0x16, /* SYN */
+	0x17, /* ETB */
+	0x18, /* CAN */
+	0x19, /* EM */
+	0x1a, /* SUB */
+	0x1b, /* ESC */
+	0x1c, /* FS */
+	0x1d, /* GS */
+	0x1e, /* RS */
+	0x1f, /* US */
+	0x00 /* Terminate the string */
+};
 
-void
-cleanupbuf(struct splayer *who)
-{
-	unsigned char tmpbuf[BUFSIZE];
-	unsigned char *newc, *old;
+int
+cleanupbuf(char* inbuf, size_t inbufsz, bool removecaps) {
+	iconv_t cd;
+	size_t rc;
+	char buf[2 * inbufsz];
+	size_t ileft = strnlen(inbuf, inbufsz - 1);
+	size_t oleft = sizeof(buf) - 1;
+	char *op = buf;
+	char *ip = inbuf;
 
-	old = (unsigned char *)&recvbuf[0];
-	newc = tmpbuf;
-	while (*old != '\000') {
-		if ((!isunclean(who, *old)) || (*old == '\n') ||
-		    (*old == '\r')) {
-			*newc = *old;
-			newc++;
+	memset(buf, 0, sizeof(buf));
+
+	cd = iconv_open("UTF-8", "UTF-8");
+	if (cd == (iconv_t) -1)
+		err(EX_SOFTWARE, "iconv_open");
+
+	while (ileft && oleft) {
+		rc = iconv(cd, &ip, &ileft, &op, &oleft);
+		if (rc == (size_t) -1) {
+			assert(errno != E2BIG);
+			if (errno == EINVAL || errno == EILSEQ) {
+				if (oleft) {
+					*op = '.';
+					op++;
+				}
+				ileft--;
+				ip++;
+			}
 		}
-		old++;
 	}
-	*newc = '\000';
-	strcpy(recvbuf, (const char *)tmpbuf);
+
+	/* strip bad characters */
+	op = buf;
+	while (op)
+		if ((op = strpbrk(op, badchars)))
+			*op = '.';
+
+	if (removecaps)
+		for (size_t i = 0; i < strnlen(buf, sizeof(buf)); ++i)
+			if (isascii(buf[i]))
+				buf[i] = tolower(buf[i]);
+
+	rc = strlcpy(inbuf, buf, inbufsz);
+	iconv_close(cd);
+	return rc;
 }
 
 int
-recvfromplayer(struct splayer *who, char *data, int howmuch)
+recvfromplayer(struct splayer *who)
 {
 	int error;
+	int outsz;
+	bool removecaps = !(who->privs & CANCAPS);
 
-	error = infromsock(who->s, data, howmuch);
-	/* remove nasty chars */
-	(void)cleanupbuf(who);
+	error = infromsock_ssl(who->h, recvbuf, sizeof(recvbuf));
+	if (error == -1)
+		return error;
+	outsz = cleanupbuf(recvbuf, sizeof(recvbuf), removecaps);
+	if (outsz >= sizeof(recvbuf))
+		return -1; /* buffer overrun */
 
-	return error;
+	return 0;
 }
 
 int
-isgagged(struct splayer *who, int line)
+isgagged(struct splayer *who, struct splayer *sender)
 {
+	int line = player_getline(sender);
 	if ((line < 1) || (line >= MAXCONN))
 		return 0;
 	else
@@ -844,35 +892,27 @@ sendtoplayer(struct splayer *who, char *message)
 {
 	int line;
 	int end = 1;
-	int gagck = 0;
 
 	if (PLAYER_HAS(LEAVING, who))
 		return 0;
-	/* If it is a message from a player, then we want to
-    listen to the returned value from isgagged, otherwise, go ahead
-    and do isgagged because it takes all of 2 nanoseconds, but ignore the
-    result. */
 
 	if (message[0] == '(') {
+		struct splayer *sender = players;
 		while (!isdigit(message[end]) && message[end])
 			end++;
 		line = atoi(&message[end]);
-		gagck = 1;
-	};
-
-	/* if we are not checking for gags, or we are and the sender is not
-	 * gagged.
-	 */
-
-	if (!(gagck && isgagged(who, line)))
-
-		if (outtosock(who->s,
-			PLAYER_HAS(WRAP, who) ?
-			    wrap(message, who->wrap) :
-			    message) == -1) { /* no one there */
-			PLAYER_SET(LEAVING, who);
+		sender = lookup(line);
+		if (!sender)
 			return 0;
-		};
+		if (isgagged(who, sender))
+			return 1; /* do not alert gagged player */
+	}
+
+	if (outtosock_ssl(who->h,
+	    PLAYER_HAS(WRAP, who) ? wrap(message, who->wrap) : message)	== -1) {
+		PLAYER_SET(LEAVING, who);
+		return 0;
+	}
 	return 1;
 }
 
@@ -912,7 +952,7 @@ lookup(int linenum)
 
 	while (tmp->next != (struct splayer *)0) {
 		tmp = tmp->next;
-		if (tmp->s == linenum)
+		if (tmp->h->sock == linenum)
 			return tmp;
 	}
 
@@ -920,14 +960,11 @@ lookup(int linenum)
 }
 
 int
-setname(int linenum, char *name)
+setname(struct splayer *pplayer, char *name)
 {
 	char *buf = name;
-	struct splayer *tmp;
 
-	/* find out who to set */
-	tmp = lookup(linenum);
-	if (tmp == (struct splayer *)0) {
+	if (pplayer == NULL) {
 		return -1;
 	} else {
 		/* check for returns and newlines */
@@ -942,13 +979,15 @@ setname(int linenum, char *name)
 		buf = (char *)skipspace(buf);
 
 		if (*buf != '\000') {
-			(void)strncpy(tmp->name, buf, MAX_NAME - 1);
-			tmp->name[MAX_NAME - 1] = 0;
+			strlcpy(pplayer->name, buf, sizeof(pplayer->name));
+			snprintf(sendbuf, sizeof(sendbuf),
+				 ">> Name changed.\r\n");
 		} else {
 			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> As if! Pick a real name!\r\n");
-			sendtoplayer(tmp, sendbuf);
+			    ">> Invalid name\r\n");
+
 		}
+		sendtoplayer(pplayer, sendbuf);
 	}
 	return 0;
 }

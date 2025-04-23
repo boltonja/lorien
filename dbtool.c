@@ -42,6 +42,7 @@
 #include "lorien.h"
 #include "newplayer.h"
 #include "security.h"
+#include "servsock_ssl.h"
 
 const char usage[] = "usage:\n"
 		     "\tdbtool player (add|auth|update) <player> <password>\n"
@@ -277,10 +278,12 @@ main(int argc, char *argv[])
 {
 	int rc;
 	int argindex = 1;
+	struct servsock_handle ssh = { 0 };
 
 	printf("argc %d\n", argc);
 	initplayerstruct();
-	players->s = 1; /* stdout */
+	players->h = &ssh;
+	ssh.sock = 1; /* stdout */
 
 	if (argc < 2) {
 		errno = EINVAL;

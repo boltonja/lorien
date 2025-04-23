@@ -31,39 +31,27 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lorien.h"
-#include "parse.h"
-#include "platform.h"
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <stdbool.h>
 
-extern char sendbuf[OBUFSIZE];
-extern char recvbuf[BUFSIZE];
-extern struct splayer *players;
-extern chan *channels;
-extern int numconnect;
+struct servsock_handle {
+	int sock;
+	bool use_ssl;
+	SSL *ssl;
+	SSL_CTX *ctx;
+	BIO *ib;
+	BIO *ob;
+};
 
-struct servsock_handle;
+struct servsock_handle *getsock_ssl(char *address, int port, bool use_ssl);
 
-chan *findchannel(char *name);
-void handleinput(fd_set needread);
-char *idlet(time_t idle);
-void initplayerstruct(void);
-int isgagged(struct splayer *recipient, struct splayer *sender);
-struct splayer *lookup(int linenum);
-chan *newchannel(char *name);
-int newplayer(struct servsock_handle *ssh);
-chan *new_channelp(char *channel);
-int numconnected();
-void playerinit(struct splayer *who, time_t when, char *where, char *numwhere);
-void processinput(struct splayer *pplayer);
-int recvfromplayer(struct splayer *who);
-void remove_channel(chan *channel);
-void removeplayer(struct splayer *player);
-void sendall(char *message, chan *channel, struct splayer *who);
-int sendtoplayer(struct splayer *who, char *message);
-int setfds(fd_set *needread);
-int setname(struct splayer *pplayer, char *name); //BUG:set_name() vs setname()?
-int welcomeplayer(struct splayer *pplayer);
-parse_error wholist(struct splayer *pplayer, char *instring);
-parse_error wholist2(struct splayer *pplayer, char *instring);
-parse_error wholist3(struct splayer *pplayer);
-int player_getline(struct splayer *pplayer);
+struct servsock_handle *acceptcon_ssl(struct servsock_handle *ssh, char *from,
+				      int len, char *from2, int len2,
+				      int *port);
+
+int infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size);
+
+int outtosock_ssl(struct servsock_handle *ssh, char *buffer);
+
+int closesock_ssl(struct servsock_handle *ssh);

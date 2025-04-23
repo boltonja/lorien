@@ -189,7 +189,7 @@ parser_execute(struct splayer *pplayer, char *buf,
 			buf++; /* skip the '>' */
 		}
 		snprintf(sendbuf, sizeof(sendbuf), "(%d, %s) %s\r\n",
-		    pplayer->s, pplayer->name, buf);
+		    player_getline(pplayer), pplayer->name, buf);
 		sendall(sendbuf, pplayer->chnl, 0);
 		return PARSE_OK;
 	}

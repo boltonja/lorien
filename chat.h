@@ -31,4 +31,4 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-int doit(int port);
+int doit(int port, int sslport);

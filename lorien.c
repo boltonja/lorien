@@ -59,7 +59,7 @@ time_t lorien_boot_time = 0;
 int handleargs(int argc, char **argv);
 
 int port = 0;
-int sslport = 0; /* not implemented */
+int sslport = 0;
 
 int
 main(int argc, char **argv)
@@ -68,7 +68,7 @@ main(int argc, char **argv)
 
 	handleargs(argc - 1, argv + 1);
 
-	doit(port);
+	doit(port, sslport);
 
 	return 0;
 }

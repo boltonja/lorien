@@ -64,23 +64,23 @@ DOC=LICENSE README CHANGELOG aprilfools.commands lorien.commands lorien.help lor
 
 MAK=.clang-format CMakeLists.txt Makefile
 
-HDR= ban.h chat.h commands.h config.h db.h files.h help.h journal.h log.h lorien.h newplayer.h parse.h platform.h ring.h security.h servsock.h trie.h utility.h
+HDR= ban.h chat.h commands.h config.h db.h files.h help.h journal.h log.h lorien.h newplayer.h parse.h platform.h security.h servsock_ssl.h trie.h utility.h
 
-SRC= ban.c chat.c commands.c db.c files.c help.c dbtool.c journal.c log.c lorien.c newplayer.c parse.c ring.c security.c servsock.c trie.c utility.c
+SRC= ban.c chat.c commands.c db.c files.c help.c dbtool.c journal.c log.c lorien.c newplayer.c parse.c security.c servsock_ssl.c trie.c utility.c
 
 MAIN= lorien.o
 
-OBJ= ban.o chat.o commands.o db.o files.o help.o journal.o log.o newplayer.o parse.o ring.o security.o servsock.o trie.o utility.o
+OBJ= ban.o chat.o commands.o db.o files.o help.o journal.o log.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
 
 # Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
-LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lcrypto
+LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto
 CFLAGS?=
 
 CC?=gcc
 DEBUG=-g -ggdb
 FLAGS=$(DEBUG) $(CFLAGS) $(OPTS) -fstack-protector-all -Wall -I/usr/local/include
 BINARY=lorien
-TARGETS=testring testtrie testhelp $(BINARY) dbtool
+TARGETS=testtrie testhelp $(BINARY) dbtool
 
 default: $(TARGETS)
 

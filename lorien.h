@@ -52,6 +52,8 @@ Dave Mott          (Energizer Rabbit)
 #include "utility.h"
 #include "ring.h"
 
+struct servsock_handle;
+
 #ifndef _LORIEN_C_
 extern size_t MAXCONN;
 #else
@@ -191,7 +193,8 @@ enum player_privs {
 #define COMMAND 2
 
 #define USAGE \
-	"USAGE: lorien [-l file] [-d] portnumber\nusually just: lorien -d 2525\n"
+	"USAGE: lorien [-l file] [-d] [-s sslport] portnumber\n" \
+	"usually just: lorien -d 2525\n"
 
 #define chan	struct channel_struct
 extern time_t lorien_boot_time;
@@ -243,8 +246,8 @@ struct splayer {
 	int spamming;	    /* if the player is probably an e-mail spambot */
 	char pbuf[BUFSIZE]; /* player buffer for accumulating text in char mode
 			     */
-	int dotspeeddial;   /* line number of the last person .p'd to */
-	int s;		    /* also the line number */
+	struct splayer *dotspeeddial;   /* last person .p'd to */
+	struct servsock_handle *h; /* line number is h->sock */
 	int port;	    /* remote port number */
 };
 
