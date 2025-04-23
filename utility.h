@@ -48,13 +48,13 @@ extern char *hi_types[];
 
 int construct_mask(char *args, int *mask);
 char *expand_hilite(int mask, char *buffer);
-time_t get_timestamp(void);
 void log_error(char *prefix, char *file, int lineno);
 char *mask2string32(int mask, int validbits, char *buffer, size_t buflen,
     char **strings, char *separator);
 char *mask2string(int mask, char *buffer, char **strings, char *separator);
 char *skipdigits(char *buf);
 char *skipspace(char *buf);
+char *trimspace(char *buf, size_t sz);
 char *timelet(time_t idle, long precision);
 
 #endif

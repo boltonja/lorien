@@ -44,6 +44,10 @@
 
 #define _LORIEN_C_
 
+#include <err.h>
+#include <time.h>
+#include <sysexits.h>
+
 #include "chat.h"
 #include "log.h"
 #include "lorien.h"
@@ -54,15 +58,15 @@ time_t lorien_boot_time = 0;
 
 int handleargs(int argc, char **argv);
 
-int port = 2525;
+int port = 0;
+int sslport = 0; /* not implemented */
 
 int
 main(int argc, char **argv)
 {
-	printf("MAXCONN = %lu\n", MAXCONN);
-	lorien_boot_time = get_timestamp();
+	lorien_boot_time = time((time_t *) NULL);
 
-	handleargs(argc, argv + 1);
+	handleargs(argc - 1, argv + 1);
 
 	doit(port);
 
@@ -75,68 +79,62 @@ handleargs(int argc, char **argv)
 	int fdaemon = 0;
 	int childid;
 	char *logfile = (char *)0;
+	int i;
 
-	while (--argc) {
-		if (**argv == '-') {
-			switch ((*argv)[1]) {
-			case 'd':
-				fdaemon = 1;
-				break;
-			case 'l':
-				if ((*argv)[2] != '\000') {
-					logfile = (*argv) + 2;
-				} else {
-					if (argc < 1) {
-						fprintf(stderr, USAGE);
-						fprintf(stderr,
-						    "-l requires you to specify a file name.\n");
-						exit(1);
-					}
-					argc--, argv++;
-					logfile = *argv;
-				}
-				break;
-			default:
-				fprintf(stderr,
-				    "lorien: Unrecognized command line option <%s> on command line.\n",
-				    *argv);
-				exit(3);
-			}
-		} else if (isdigit(**argv)) {
-			port = atoi(*argv);
-		} else {
-			fprintf(stderr,
-			    "lorien: Unrecognized word <%s> on command line .\n",
-			    *argv);
-			exit(3);
+	for (i = 0; i < argc; i++) {
+		if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-?")) {
+			fprintf(stderr, USAGE);
+			exit(0);
 		}
+		if (!strcmp(argv[i], "-d")) {
+			fdaemon = 1;
+		} else if (!strcmp(argv[i], "-l")) {
+			if (++i >= argc) {
+				errno = EINVAL;
+				err(EX_DATAERR, "missing log file name");
+			}
+			logfile = argv[i];
+		} else if (!strcmp(argv[i], "-s")) {
+			if (++i >= argc) {
+				errno = EINVAL;
+				err(EX_DATAERR, "missing ssl port");
+			} else
+				sslport = atoi(argv[i]);
 
-		argv++;
+			if (!sslport)
+				err(EX_DATAERR, "bad ssl port %s", argv[i]);
+		} else if ((port = atoi(argv[i]))) {
+			port = atoi(argv[i]);
+			if (!port)
+				err(EX_DATAERR, "bad port %s", argv[i]);
+		} else {
+			errno = EINVAL;
+			err(EX_DATAERR, "Unrecognized command option <%s>",
+			    argv[i]);
+		}
 	}
 
-	if (logfile != (char *)0)
-		if (freopen(logfile, "w", stderr) == NULL) {
-			printf(
-			    "lorien: unable to open logfile, %s, on stderr.\n",
-			    logfile);
-			exit(4);
-		}
+	if (!sslport && !port)
+		err(EX_DATAERR, "you must specify at least one port");
+	if (logfile) {
+		printf("redirecting stderr to %s\n", logfile);
+		if (freopen(logfile, "w", stderr) == NULL)
+			err(EX_OSERR, "unable to open logfile %s", logfile);
+	}
+	printf("starting lorien on port %d/+%d.\n", port, sslport);
 
 #ifndef _MSC_VER
 	if (fdaemon) {
 		switch (childid = fork()) {
 		case -1:
 			fprintf(stdout, "ERROR starting daemon. exitting.\n");
-			perror("lorien: fork");
-			exit(2);
+			err(EX_OSERR, "fork");
 			break;
 		case 0:
 			if (logfile == (char *)0)
 				(void)fclose(stderr);
 			break;
 		default:
-			printf("Daemon succesfully Started on port %d.\n",
-			    port);
 			printf("Daemon's pid is %d.\n", childid);
 			printf("This is the parent process signing off.\n");
 			fclose(stdin);
@@ -145,9 +143,6 @@ handleargs(int argc, char **argv)
 			close(1);
 			exit(0);
 		}
-		/* This line generates a warning if your header files are broken
-		 and don't properly cast SIG_IGN. */
-		//      signal(SIGPIPE,SIG_IGN);
 	}
 #endif
 	fclose(stdin);

@@ -54,6 +54,16 @@ skipdigits(char *buf)
 	return buf;
 }
 
+char *trimspace(char *buf, size_t sz) {
+	char *p = skipspace(buf);
+	char *e = &p[strnlen(p, sz) - 1];
+
+	while (isspace(*e) && e >= p)
+		*e-- = (char) 0;
+
+	return p;
+}
+
 #ifdef NEED_STRERROR
 char *
 strerror(int num)
@@ -302,9 +312,3 @@ timelet(time_t idle, long precision)
 	return buf;
 }
 
-/* get timestamp now */
-time_t
-get_timestamp(void)
-{
-	return time((time_t *)0);
-}
