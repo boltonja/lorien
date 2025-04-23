@@ -102,7 +102,7 @@ out:
 }
 
 int
-ban_remove(char *s)
+ban_remove(const char *s)
 {
 	struct ban_item *curr = NULL;
 	int found = 0;
@@ -129,14 +129,18 @@ ban_list(struct splayer *who)
 {
 	char sendbuf[OBUFSIZE];
 	struct ban_item *curr = NULL;
+	char displayname[16];
 
 	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> The following patterns are banned:\r\n");
+		 ">> added by        pattern\r\n"
+		 ">> --------------- -------------------\r\n");
 	sendtoplayer(who, sendbuf);
 
 	SLIST_FOREACH(curr, &banhead, entries) {
-		snprintf(sendbuf, sizeof(sendbuf), ">> %s\r\n", curr->pattern);
-			sendtoplayer(who, sendbuf);
+		strlcpy(displayname, curr->owner, sizeof(displayname));
+		snprintf(sendbuf, sizeof(sendbuf), ">> %15s %s\r\n",
+			 displayname, curr->pattern);
+		sendtoplayer(who, sendbuf);
 	}
 
 	return PARSE_OK;

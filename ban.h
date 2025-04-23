@@ -44,15 +44,16 @@
 
 struct ban_item {
 	SLIST_ENTRY(ban_item) entries;
+	time_t created;
+	int flags;
 	char pattern[LORIEN_V0178_BAN];
 	char owner[LORIEN_V0174_NAME];
-	time_t created;
 };
 
 int ban_add(const char *s, const char *owner, time_t created, bool save_ban);
 bool ban_findsite(char *s);
 parse_error ban_list(struct splayer *who);
 int ban_read_db(void);
-int ban_remove(char *s);
+int ban_remove(const char *s);
 
 #endif
