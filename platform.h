@@ -31,11 +31,25 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__APPLE__)
+#include <arpa/inet.h>
+#define htobe64(x) htonll(x)
+#define htobe32(x) htonl(x)
+#define htobe16(x) htons(x)
+#define be64toh(x) ntohll(x)
+#define be32toh(x) ntohl(x)
+#define be16toh(x) ntohs(x)
+#endif
+
+#if defined(__FreeBSD__) || defined(__NetBSD__)
 #include <sys/endian.h>
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifdef __linux__
+#include <bsd/bsd.h>
+#endif
 
 #include <ctype.h>
 #if defined(__linux__) || defined(__illumos__) || defined(__OpenBSD__)

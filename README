@@ -1,4 +1,4 @@
-Lorien 1.7.7 Documentation
+Lorien 1.7.8b2 Documentation
 
 24 October 1996 (cosmetic changes only.)
 12 September 1994
@@ -99,47 +99,16 @@ CHANGELOG file keeps track of the important changes.
 
 III.  Packing List
 
-Note: this list is outdated.
-
-     In the Lorien distribution you will find the following files.
-
-CHANGELOG           - A log of significant and insignificant modifications.
-Makefile            - The file used to build the project.  Type 'make'
-README              - This file.
-READ_ME_QUICK_START - A quick start file with some very basic instructions.
-ban.c               - Code for banning sites.
-ban.h               - Definitions for ban.c
-chat.c              - Some of the main code for the daemon.
-config.h            - Used if some things can't be selected in the makefile.
-filetest.c          - An old program useful for testing to see if your
-                      implementation of the stream i/o functions is broken.
-getmax.c            - Used to determine the maximum number of connections
-                      at compile time.
-help.c              - The help routines.
-log.c               - Routines for the log file.
-lorien.c            - More code for the daemon and the startup code.
-lorien.h            - Defines and declarations used by all files.
-lorien.help         - The default help file.
-lorien.welcome      - The default welcome file.
-newplayer.c         - The code for handling player operations, and obtaining
-                      input and sending output.  These are high-level routines.
-parse.c             - The code for handling the commands.
-security.h          - Edit this and put your own passwords in.
-servsock.c          - Low level socket routines.
-sockets.doc         - A document describing how sockets work.  This should
-                      help you understand Chris's servsock.c.
-sysop.doc           - A document for you to read.
-utility.c           - Routines shared by Chris's Haven and Lorien.
-utility.h           - Defines used by utility.c
+Note: this space intentionally left almost blank.
 
 IV.  Installation.
 
 PRE-REQUISITES:
 
-Lorien requires lmdb (http://www.lmdb.tech/doc/starting.html). You may be able
-to install a package with your system's package manager. You may also need to
-add, e.g. "-I/usr/local/include" to your CFLAGS and "-L/usr/local/lib" to your
-LIBS in the Makefile.
+Lorien requires lmdb (http://www.lmdb.tech/doc/starting.html). You may
+be able to install a package with your system's package manager. You
+may also need to add, e.g. "-I/usr/local/include" to your CFLAGS and
+"-L/usr/local/lib" to your LIBS in the Makefile.
 
 For Linux, libbsd-dev and libssl-dev are also required.
 
@@ -149,13 +118,16 @@ Lorien is known to build on the following systems:
        OpenBSD 7.5
        NetBSD 10.0
        OpenIndiana
-       macOS Sonoma
+       macOS Sequoia
+       Haiku OS R1/beta5
+       Microsoft Windows 11 (via MSYS2 on x64 and arm64)
+       Microsoft Windows 10 (via MSYS2 on x64 only)
 
-Prior to the introduction of lmdb, Lorien also built on Windows 11. You will
-need a recent Visual Studio (we used VS 2022 Community Edition) and a port
-of lmdb to attempt building. For turn-key installation on Windows, consider
-building and running under WSL. You can use ssh port forwarding from
-Powershell to expose lorien's WSL tcp port.
+Prior to the introduction of lmdb, Lorien also built on Windows
+11. You will need a recent Visual Studio (we used VS 2022 Community
+Edition) and a port of lmdb to attempt building. The MSYS2 port is
+only tested with the x64 toolchain, as this runs well enough on
+Windows-on-Arm.
 
 On many systems, simply cd into the Lorien directory and type:
 
@@ -163,29 +135,57 @@ On many systems, simply cd into the Lorien directory and type:
 
 For FreeBSD:
 
-       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lcrypto"
+       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto"
 
 For Ubuntu or Debian:
 
-       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lbsd -lcrypto"
+       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lbsd -lssl -lcrypto"
 
 For OpenSolaris-derived systems (Illumos, eg. OpenIndiana) you will want:
 
-       make -k CC=gcc LIBS="-lc -llmdb -lnsl -lsocket -lcrypto"
+       make -k CC=gcc LIBS="-lc -llmdb -lnsl -lsocket -lssl -lcrypto" \
+            CFLAGS="-D_POSIX_PTHREAD_SEMANTICS"
 
 For macOS with HomeBrew:
 
-       make LIBS="-L/opt/homebrew/lib -lc -llmdb -lcrypto" \
+       make LIBS="-L/opt/homebrew/lib -lc -llmdb -ssl -lcrypto" \
             CFLAGS="-I/opt/homebrew/include"
 
 For NetBSD:
 
        export LD_LIBRARY_PATH=/usr/pkg/lib:/lib:/usr/lib:/usr/local/lib
        make CFLAGS="-I/usr/pkg/include" \
-            LIBS="-L/usr/pkg/lib -lc -llmdb -lcrypto"
+            LIBS="-L/usr/pkg/lib -lc -llmdb -ssl -lcrypto"
 
 For OpenBSD:
-       make LIBS="-L/usr/local/lib -lc -llmdb -lcrypto" 
+       make LIBS="-L/usr/local/lib -lc -llmdb -ssl -lcrypto" 
+
+For Windows with MSYS2:
+       pacman -Ss mingw-w64-x86_64-lmdb libbsd mingw-w64-x86_64-libressl
+       make CFLAGS="-I/mingw64/include" LIBS="-L/mingw64/lib -llmdb -ssl -lcrypto"
+
+For Haiku:
+       #### WARNING: the default Haiku user runs with root privileges
+       ####          so you probably don't want to do this unless Haiku
+       ####          is your development environment
+       ### your /boot/system/settings/network/hosts MUST have an entry
+       ### that matches yourhostname.  you will need to uncomment the
+       ### next 3 lines
+       # ifconfig | grep 'inet addr' | grep -v '127.0.0.1'| \
+       # awk '{print $3}' | sed 's/,//'| xargs echo `hostname` | \
+       # awk '{print $2 " " $1}' >> /boot/system/settings/network/hosts
+       ### you MUST install the lmdb package from HaikuDepot but it does
+       ### not include <lmdb.h> so you MUST also clone the lmdb repo to
+       ### to provide the header file
+       pushd $HOME
+       git clone https://github.com/LMDB/lmdb
+       popd
+       ### Haiku doesn't seem to have libssp_nonshared so we need
+       ### to disable stack smash protection
+       sed -i "s/-fstack-protector-all//g" Makefile
+       ### Finally we can build lorien
+       make CFLAGS="-I/boot/home/lmdb/libraries/liblmdb" \
+       LIBS="-llmdb -lcrypto -lnetwork -ssl -lbsd"
 
 You probably also want to create a file called lorien.welcome, which
 is an (ostensibly) text file that is displayed to each new connection.
