@@ -80,7 +80,7 @@ CC?=gcc
 DEBUG=-g -ggdb
 FLAGS=$(DEBUG) $(CFLAGS) $(OPTS) -fstack-protector-all -Wall -I/usr/local/include
 BINARY=lorien
-TARGETS=testtrie testhelp $(BINARY) dbtool
+TARGETS=testtrie testhelp testboard testmsg $(BINARY) dbtool
 
 default: $(TARGETS)
 
@@ -102,6 +102,12 @@ testhelp: help.c
 
 testtrie: trie.c trie.h
 	$(CC) -DTESTTRIE $(DEBUG) $(FLAGS) -o testtrie trie.c $(LIBS)
+
+testboard: board.c board.h db.o
+	$(CC) -DTESTBOARD $(DEBUG) $(FLAGS) -o testboard board.c db.o $(LIBS)
+
+testmsg: msg.c msg.h board.h db.o board.o trie.o
+	$(CC) -DTESTMSG $(DEBUG) $(FLAGS) -o testmsg msg.c board.o db.o trie.o $(LIBS)
 
 dbtool: db.h lorien.h dbtool.c $(OBJ)
 	$(CC) $(DEBUG) $(FLAGS) -o dbtool dbtool.c $(OBJ) $(LIBS)

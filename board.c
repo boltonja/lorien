@@ -34,6 +34,7 @@
 /* board.c - bulletin board capability for Lorien
  */
 
+#include <assert.h>
 #include <stdbool.h>
 
 #include "board.h"
@@ -41,6 +42,9 @@
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
+#ifdef TESTBOARD
+#include "servsock_ssl.h"
+#endif
 
 SLIST_HEAD(boardlist, board) boardhead = SLIST_HEAD_INITIALIZER(boardhead);
 
@@ -50,31 +54,43 @@ int
 board_read_cb(struct board *board)
 {
 	boards_read_from_db++;
-	return board_add(board->name, board->owner, board->desc, board->created,
-	    false);
+	return board_add(board->name, board->owner, board->desc, board->type,
+	    board->created, false);
 }
 
 int
 board_read_db(void)
 {
+	boards_read_from_db = 0;
 	(void)ldb_board_scan(&lorien_db, board_read_cb);
 	return boards_read_from_db;
 }
 
 int
-board_add(const char *name, const char *owner, const char *desc, time_t created,
-    bool save_board)
+board_add(const char *name, const char *owner, const char *desc,
+    ldb_board_type type, time_t created, bool save_board)
 {
 	struct board *curr = malloc(sizeof(struct board));
 
 	if (!curr)
 		return BOARDERR_NOMEM;
 
+	switch (type) {
+	case LDB_BOARD_BULLETIN:
+	case LDB_BOARD_CHANNEL:
+	case LDB_BOARD_MBOX:
+		break;
+	default:
+		free(curr);
+		return BOARDERR_INVALID;
+	}
+
 	TAILQ_INIT(&curr->threads);
 	strlcpy(curr->name, name, sizeof(curr->name));
 	strlcpy(curr->owner, owner, sizeof(curr->owner));
 	strlcpy(curr->desc, desc, sizeof(curr->desc));
 	curr->created = created;
+	curr->type = type;
 
 	if (save_board) {
 		int rc = ldb_board_put(&lorien_db, curr);
@@ -129,17 +145,152 @@ parse_error
 board_list(struct splayer *who)
 {
 	char sendbuf[OBUFSIZE];
+	char timbuf[50];
 	struct board *curr = NULL;
+	char *nl;
 
 	snprintf(sendbuf, sizeof(sendbuf), ">> Bulletin Boards:\r\n");
 	sendtoplayer(who, sendbuf);
 
 	SLIST_FOREACH(curr, &boardhead, entries) {
+		ctime_r(&curr->created, timbuf);
+		nl = index(timbuf, '\n');
+		if (nl)
+			*nl = (char)0;
 		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Owner: %s\r\n>> Board: %s\r\n>>        %s\r\n",
-		    curr->owner, curr->name, curr->desc);
+		    ">> Board: %s\r\n>>   Created: %s\r\n>>   Owner: %s\r\n"
+		    ">>   Description: %s\r\n",
+		    curr->name, timbuf, curr->owner, curr->desc);
 		sendtoplayer(who, sendbuf);
 	}
 
 	return PARSE_OK;
 }
+
+#ifdef TESTBOARD
+
+const int testboards = 5;
+const char *names[] = { "one", "two", "three", "four", "five" };
+const ldb_board_type types[] = { LDB_BOARD_BULLETIN, LDB_BOARD_CHANNEL,
+	LDB_BOARD_MBOX, LDB_BOARD_BULLETIN, LDB_BOARD_BULLETIN };
+const char *owners[] = { "you", "me", "somebody else", "us", "them" };
+const char *descs[] = { "red", "blue", "green", "purple", "yellow" };
+
+int
+sendtoplayer(struct splayer *who, char *buf)
+{
+	printf("%s", buf);
+	return 0;
+}
+
+int
+main(void)
+{
+	int i, rc;
+	struct board *b;
+	struct servsock_handle h = { 0 };
+	struct splayer p = { 0 };
+
+	b = board_get(NULL);
+	assert(!b);
+
+	b = board_get("moo");
+	assert(!b);
+
+	for (i = 0; i < testboards; i++) {
+		rc = board_add(names[i], owners[i], descs[i], types[i],
+		    time(NULL), false);
+		assert(BOARD_SUCCESS == rc);
+	}
+
+	for (i = 0; i < testboards; i++) {
+		b = board_get(names[i]);
+		assert(b);
+		assert(!strcmp(b->name, names[i]));
+		assert(!strcmp(b->owner, owners[i]));
+		assert(!strcmp(b->desc, descs[i]));
+		assert(b->type == types[i]);
+		assert(b->created != 0);
+	}
+
+	rc = board_add("moo", "beep", "indigo", 100, time(NULL), false);
+	assert(rc == BOARDERR_INVALID);
+
+	b = board_get("moo");
+	assert(!b);
+
+	h.sock = 1;
+	p.h = &h;
+	board_list(&p);
+
+	for (b = SLIST_FIRST(&boardhead); b; b = SLIST_FIRST(&boardhead))
+		if (b)
+			SLIST_REMOVE_HEAD(&boardhead, entries);
+
+	for (i = 0; i < testboards; i++) {
+		b = board_get(names[i]);
+		assert(!b);
+	}
+
+	strlcpy(lorien_db.dbname, "./testboard.db", sizeof(lorien_db.dbname));
+
+	rc = ldb_open(&lorien_db);
+	assert(!rc);
+
+	rc = board_read_db();
+	assert(0 == rc);
+
+	for (i = 0; i < testboards; i++) {
+		rc = board_add(names[i], owners[i], descs[i], types[i],
+		    time(NULL), true);
+		assert(BOARD_SUCCESS == rc);
+	}
+
+	b = board_get(names[0]);
+	assert(b);
+	assert(!strcmp(b->name, names[0]));
+
+	for (b = SLIST_FIRST(&boardhead); b; b = SLIST_FIRST(&boardhead))
+		if (b)
+			SLIST_REMOVE_HEAD(&boardhead, entries);
+
+	for (i = 0; i < testboards; i++) {
+		b = board_get(names[i]);
+		assert(!b);
+	}
+
+	rc = board_read_db();
+	assert(testboards == rc);
+
+	for (i = 0; i < testboards; i++) {
+		b = board_get(names[i]);
+		assert(b);
+		assert(!strcmp(b->name, names[i]));
+		assert(!strcmp(b->owner, owners[i]));
+		assert(!strcmp(b->desc, descs[i]));
+		assert(b->type == types[i]);
+		assert(b->created != 0);
+	}
+
+	for (i = 0; i < testboards; i++) {
+		rc = board_remove(names[i]);
+		assert(BOARD_SUCCESS == rc);
+		b = board_get(names[i]);
+		assert(!b);
+	}
+
+	rc = board_read_db();
+	assert(0 == rc);
+
+	for (i = 0; i < testboards; i++) {
+		b = board_get(names[i]);
+		assert(!b);
+	}
+
+	rc = ldb_close(&lorien_db);
+	assert(!rc);
+
+	printf("all tests passed.\n");
+}
+
+#endif

@@ -103,7 +103,6 @@ struct ldb_board {
 	/* data */
 	time_t created; /* created */
 	ldb_board_mask flags;
-	char name[LORIEN_V0174_NAME];
 	char owner[LORIEN_V0174_NAME];
 	char desc[LORIEN_V0178_DESC];
 };

@@ -358,8 +358,7 @@ main(int argc, char *argv[])
 		err(EX_USAGE, usage);
 	}
 
-	strncpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname) - 1);
-	lorien_db.dbname[sizeof(lorien_db.dbname) - 1] = (char)0;
+	strlcpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname));
 
 	rc = ldb_open(&lorien_db);
 	if (rc != 0) {

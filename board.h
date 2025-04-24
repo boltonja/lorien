@@ -58,13 +58,14 @@ struct board {
 enum {
 	BOARD_SUCCESS = 0,
 	BOARDERR_DBFAIL,
+	BOARDERR_INVALID,
 	BOARDERR_NOMEM,
 	BOARDERR_NOTEMPTY,
 	BOARDERR_NOTFOUND,
 };
 
 int board_add(const char *name, const char *owner, const char *desc,
-    time_t created, bool save_board);
+    ldb_board_type type, time_t created, bool save_board);
 struct board *board_get(const char *name);
 parse_error board_list(struct splayer *who);
 int board_read_db(void);

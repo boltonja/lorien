@@ -505,8 +505,8 @@ ldb_board_delete(struct lorien_db *db, struct board *board)
 		return rc;
 
 	board_to_media(&ldbb, board);
-	key.mv_data = ldbb.name;
-	key.mv_size = strnlen(ldbb.name, sizeof(ldbb.name));
+	key.mv_data = &ldbb.key;
+	key.mv_size = sizeof(ldbb.key);
 	data.mv_data = &ldbb;
 	data.mv_size = sizeof(ldbb);
 
@@ -553,7 +553,7 @@ ldb_board_scan(struct lorien_db *db, int (*boardfunc)(struct board *))
 		}
 
 		board_from_media(&board, (struct ldb_board *)data.mv_data);
-		if (!boardfunc(&board)) {
+		if (boardfunc(&board)) {
 			rc = ENOMEM;
 			goto errcurs;
 		}
@@ -586,8 +586,8 @@ ldb_board_put(struct lorien_db *db, struct board *board)
 		return rc;
 
 	board_to_media(&ldbb, board);
-	key.mv_data = ldbb.name;
-	key.mv_size = strnlen(ldbb.name, sizeof(ldbb.name));
+	key.mv_data = &ldbb.key;
+	key.mv_size = sizeof(ldbb.key);
 	data.mv_data = &ldbb;
 	data.mv_size = sizeof(ldbb);
 
@@ -645,17 +645,23 @@ ldb_msg_scan(struct lorien_db *db, int (*msgfunc)(struct ldb_msg *))
 
 		memset(ldm, 0, ldmsz);
 		msg_from_media(ldm, (struct ldb_msg *)data.mv_data);
-		if (!msgfunc(ldm)) {
-			rc = ENOMEM;
+		rc = msgfunc(ldm);
+		if (rc) {
+			goto errcurs;
 			break;
 		}
 
 		rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);
 	}
 
+	if (rc == MDB_NOTFOUND)
+		rc = 0;
+
 	/* read only transaction, ok to abort on success */
 	if (ldm)
 		free(ldm);
+
+errcurs:
 	mdb_cursor_close(cursor);
 errtxn:
 	mdb_txn_abort(txn);

@@ -47,6 +47,9 @@
  *
  */
 
+#ifdef TESTMSG
+#include <assert.h>
+#endif
 #include <err.h>
 #include <sysexits.h>
 
@@ -56,6 +59,9 @@
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
+#ifdef TESTMSG
+#include "servsock_ssl.h"
+#endif
 #include "trie.h"
 
 struct trie_node msgindex = { 0 };
@@ -109,7 +115,10 @@ msg_add(struct msg *msg)
 {
 	int rc;
 
-	if (!msg)
+	if (!msg || !msg->board)
+		return MSGERR_INVAL;
+
+	if (msg->parent && !msg->parent->board)
 		return MSGERR_INVAL;
 
 	rc = msgindex_add(msg);
@@ -236,6 +245,8 @@ msg_free(struct msg *msg)
 	return 0;
 }
 
+static int msgs_read_from_db = 0;
+
 int
 msg_scan_cb(struct ldb_msg *m)
 {
@@ -302,3 +313,136 @@ msg_scan_cb(struct ldb_msg *m)
 
 	return 0;
 }
+
+int
+msg_read_db(void)
+{
+	msgs_read_from_db = 0;
+	int rc;
+
+	rc = ldb_msg_scan(&lorien_db, msg_scan_cb);
+	if (rc != 0)
+		err(EX_SOFTWARE, "failed to scan msgs from db");
+
+	return msgs_read_from_db;
+}
+
+#ifdef TESTMSG
+
+int
+sendtoplayer(struct splayer *who, char *buf)
+{
+	printf("%s", buf);
+	return 0;
+}
+
+int
+main(void)
+{
+	int rc;
+	struct servsock_handle h = { 0 };
+	struct splayer p = { 0 };
+	struct msg *mp;
+	struct msg parent = { 0 };
+	struct msgkey key = { 0 };
+	struct msg child = { 0 };
+	struct board *board1 = NULL;
+	struct board *board2 = NULL;
+
+	rc = msgindex_add(NULL);
+	assert(MSGERR_INVAL == rc);
+
+	rc = msgindex_del(NULL);
+	assert(MSGERR_INVAL == rc);
+
+	mp = msgindex_find(NULL);
+	assert(NULL == mp);
+
+	parent.key.created = 1;
+	parent.key.created_usec = 1;
+
+	rc = msgindex_add(&parent);
+	assert(MSG_SUCCESS == rc);
+
+	memcpy(&key, &parent.key, sizeof(key));
+
+	mp = msgindex_find(&key);
+	assert(&parent == mp);
+
+	key.created_usec = 2;
+	mp = msgindex_find(&key);
+	assert(NULL == mp);
+
+	memcpy(&child.key, &key, sizeof(child.key));
+
+	rc = msgindex_del(&child);
+	assert(MSGERR_NOTFOUND == rc);
+
+	child.key.created_usec = 1;
+	rc = msgindex_del(&child);
+	assert(MSG_SUCCESS == rc);
+
+	mp = msgindex_find(&child.key);
+	assert(NULL == mp);
+
+	rc = msgindex_del(&parent);
+	assert(MSGERR_NOTFOUND == rc);
+
+	h.sock = 1;
+	p.h = &h;
+
+	strlcpy(lorien_db.dbname, "./testmsg.db", sizeof(lorien_db.dbname));
+
+	rc = ldb_open(&lorien_db);
+	assert(!rc);
+
+	rc = board_read_db();
+	assert(0 == rc);
+
+	rc = msg_read_db();
+	assert(0 == rc);
+
+	rc = board_add("announcements", "hermit", "important stuff for all",
+	    LDB_BOARD_BULLETIN, time(NULL), true);
+	assert(BOARD_SUCCESS == rc);
+
+	rc = board_add("bug reports", "valkyrie", "please include good repro",
+	    LDB_BOARD_BULLETIN, time(NULL), true);
+	assert(BOARD_SUCCESS == rc);
+
+	board1 = board_get("announcements");
+	assert(NULL != board1);
+
+	board2 = board_get("bug reports");
+	assert(NULL != board2);
+
+	struct msg *thread1 = NULL;
+	struct msg *thread2 = NULL;
+	// struct msg *t1a = NULL, *t1b = NULL;
+	// struct msg *t2a = NULL, *t2b = NULL;;
+
+	thread1 = msg_new(board1, NULL, "hermit", "new version", 11,
+	    "its live see release notes for details", 38);
+	assert(NULL != thread1);
+
+	thread2 = msg_new(board2, NULL, "valkyrie", "unicode bug", 11,
+	    "crappy bug report here", 22);
+	assert(NULL != thread2);
+
+	rc = msg_mk(thread1);
+	assert(MSG_SUCCESS == rc);
+
+	rc = msg_mk(thread2);
+	assert(MSG_SUCCESS == rc);
+
+	memcpy(&key, &thread1->key, sizeof(key));
+	mp = msgindex_find(&key);
+	assert(mp == thread1);
+
+	memcpy(&key, &thread2->key, sizeof(key));
+	mp = msgindex_find(&key);
+	assert(mp == thread2);
+
+	printf("all tests passed.\n");
+}
+#endif

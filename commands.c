@@ -383,7 +383,8 @@ add_board(struct splayer *pplayer, char *buf)
 		d = skipspace(d);
 	}
 
-	rc = board_add(n, pplayer->name, d, time((time_t *)NULL), true);
+	rc = board_add(n, pplayer->name, d, LDB_BOARD_BULLETIN,
+	    time((time_t *)NULL), true);
 	if (!rc)
 		snprintf(sendbuf, sizeof(sendbuf),
 		    ">> added board |%s| desc |%s|\r\n", n, d);

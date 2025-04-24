@@ -516,6 +516,9 @@ handleinput(fd_set needread)
 	tplayer = players->next;
 
 	while (tplayer != (struct splayer *)0) {
+		int pbsz = sizeof(tplayer->pbuf);
+		int pblen;
+
 		pplayer = tplayer;
 		tplayer = pplayer->next;
 
@@ -783,6 +786,7 @@ wholist3(struct splayer *pplayer)
 	return PARSE_OK;
 }
 
+// clang-format off
 static char badchars[] = {
 	0x01, /* SOH */
 	0x02, /* STX */
@@ -817,6 +821,7 @@ static char badchars[] = {
 	0x1f, /* US */
 	0x00  /* Terminate the string */
 };
+// clang-format on
 
 int
 cleanupbuf(char *inbuf, size_t inbufsz, bool removecaps)
