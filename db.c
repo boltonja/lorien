@@ -38,8 +38,10 @@
 #include <sysexits.h>
 
 #include "ban.h"
+#include "board.h"
 #include "db.h"
 #include "lorien.h"
+#include "platform.h"
 
 /* It's OK for a player and a channel and a board to each be named "Player"
  * But we don't want duplicate player records, channel records, or board
@@ -55,7 +57,7 @@ struct lorien_db lorien_db = { 0 };
 
 const char *ldb_names[] = {
 	"board",
-	"chan",
+	"unused",
 	"message",
 	"player",
 	"ban",
@@ -130,6 +132,7 @@ ban_from_media(struct ban_item *ban, struct ldb_ban *ldbb)
 	strlcpy(ban->owner, ldbb->owner, sizeof(ban->owner));
 
 	ban->created = betimetoh(ldbb->created);
+	ban->flags = be32toh(ldbb->flags);
 }
 
 static void
@@ -140,6 +143,83 @@ ban_to_media(struct ldb_ban *ldbb, struct ban_item *ban)
 	strlcpy(ldbb->owner, ban->owner, sizeof(ldbb->owner));
 
 	ldbb->created = htobetime(ban->created);
+	ldbb->flags = htobe32(ban->flags);
+}
+
+static void
+board_from_media(struct board *board, struct ldb_board *ldbb)
+{
+	strlcpy(board->name, ldbb->key.name, sizeof(board->name));
+	strlcpy(board->owner, ldbb->owner, sizeof(board->owner));
+	strlcpy(board->desc, ldbb->desc, sizeof(board->desc));
+
+	board->created = betimetoh(ldbb->created);
+	board->type = be32toh(ldbb->key.type);
+	board->flags = be32toh(ldbb->flags);
+}
+
+static void
+board_to_media(struct ldb_board *ldbb, struct board *board)
+{
+	memset(ldbb, 0, sizeof(*ldbb));
+	strlcpy(ldbb->key.name, board->name, sizeof(ldbb->key.name));
+	strlcpy(ldbb->owner, board->owner, sizeof(ldbb->owner));
+	strlcpy(ldbb->desc, board->desc, sizeof(ldbb->desc));
+
+	ldbb->created = htobetime(board->created);
+	ldbb->key.type = htobe32(board->type);
+	ldbb->flags = htobe32(board->flags);
+}
+
+static void
+msg_to_media(struct ldb_msg *ldm, struct msg *msg)
+{
+	time_t p_created = msg->parent ? msg->parent->key.created : 0;
+	int32_t p_created_us = (p_created) ? msg->parent->key.created_usec : 0;
+	char *text = &ldm->data[msg->subjsz];
+	char *subj = &ldm->data[0];
+
+	ldm->key.created = htobetime(msg->key.created);
+	ldm->key.created_usec = htobe32(msg->key.created_usec);
+	ldm->parent_created = htobetime(p_created);
+	ldm->parent_created_usec = htobe32(p_created_us);
+	ldm->board_type = htobe32(msg->board_type);
+	ldm->subjsz = htobe64(msg->subjsz);
+	ldm->textsz = htobe64(msg->textsz);
+
+	/* paranoia for the delete case */
+	if (msg->board)
+		strlcpy(ldm->board, msg->board->name, sizeof(ldm->board));
+	else
+		memset(ldm->board, 0, sizeof(ldm->board));
+	strlcpy(ldm->owner, msg->owner, sizeof(ldm->owner));
+	strlcpy(subj, msg->subj, msg->subjsz);
+	strlcpy(text, msg->text, msg->textsz);
+}
+
+static void
+msg_from_media(struct ldb_msg *out, struct ldb_msg *in)
+{
+	char *text, *itext;
+	char *subj, *isubj;
+
+	out->key.created = betimetoh(in->key.created);
+	out->key.created_usec = be32toh(in->key.created_usec);
+	out->parent_created = betimetoh(in->key.created);
+	out->parent_created_usec = be32toh(in->parent_created_usec);
+	out->board_type = be32toh(in->board_type);
+	out->subjsz = be64toh(in->subjsz);
+	out->textsz = be64toh(in->textsz);
+
+	text = &out->data[out->subjsz];
+	subj = &out->data[0];
+	itext = &in->data[out->subjsz];
+	isubj = &in->data[0];
+
+	strlcpy(out->board, in->board, sizeof(out->board));
+	strlcpy(out->owner, in->board, sizeof(out->board));
+	strlcpy(subj, isubj, sizeof(out->subjsz));
+	strlcpy(text, itext, sizeof(out->textsz));
 }
 
 int
@@ -336,7 +416,6 @@ ldb_ban_scan(struct lorien_db *db,
 	MDB_val key, data;
 	MDB_cursor *cursor;
 
-	struct ldb_ban ldbb = { 0 };
 	struct ban_item ban = { 0 };
 
 	if (!db || !db->db || !banfunc)
@@ -355,13 +434,12 @@ ldb_ban_scan(struct lorien_db *db,
 		goto errcurs;
 
 	do {
-		if (data.mv_size != sizeof(ldbb)) {
+		if (data.mv_size != sizeof(struct ldb_ban)) {
 			rc = EBADMSG;
 			goto errcurs;
 		}
 
-		memcpy(&ldbb, data.mv_data, sizeof(ldbb));
-		ban_from_media(&ban, &ldbb);
+		ban_from_media(&ban, (struct ldb_ban *)data.mv_data);
 		if (!banfunc(&ban)) {
 			rc = ENOMEM;
 			goto errcurs;
@@ -407,5 +485,263 @@ ldb_ban_put(struct lorien_db *db, struct ban_item *ban)
 	}
 
 	rc = mdb_txn_commit(txn);
+	return rc;
+}
+
+int
+ldb_board_delete(struct lorien_db *db, struct board *board)
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+
+	struct ldb_board ldbb = { 0 };
+	if (!db || !db->db || !board)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	board_to_media(&ldbb, board);
+	key.mv_data = ldbb.name;
+	key.mv_size = strnlen(ldbb.name, sizeof(ldbb.name));
+	data.mv_data = &ldbb;
+	data.mv_size = sizeof(ldbb);
+
+	rc = mdb_del(txn, db->dbis[LDB_BOARD], &key, &data);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+
+	return rc;
+}
+
+int
+ldb_board_scan(struct lorien_db *db, int (*boardfunc)(struct board *))
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+	MDB_cursor *cursor;
+
+	struct board board = { 0 };
+
+	if (!db || !db->db || !boardfunc)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	rc = mdb_cursor_open(txn, db->dbis[LDB_BOARD], &cursor);
+	if (rc != 0)
+		goto errtxn;
+
+	rc = mdb_cursor_get(cursor, &key, &data, MDB_FIRST);
+	if (rc != 0)
+		goto errcurs;
+
+	do {
+		if (data.mv_size != sizeof(struct ldb_board)) {
+			rc = EBADMSG;
+			goto errcurs;
+		}
+
+		board_from_media(&board, (struct ldb_board *)data.mv_data);
+		if (!boardfunc(&board)) {
+			rc = ENOMEM;
+			goto errcurs;
+		}
+
+		rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);
+	} while (rc == 0);
+
+	/* read only transaction, ok to abort on success */
+errcurs:
+	mdb_cursor_close(cursor);
+errtxn:
+	mdb_txn_abort(txn);
+	return rc;
+}
+
+int
+ldb_board_put(struct lorien_db *db, struct board *board)
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+
+	struct ldb_board ldbb = { 0 };
+
+	if (!db || !db->db || !board)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	board_to_media(&ldbb, board);
+	key.mv_data = ldbb.name;
+	key.mv_size = strnlen(ldbb.name, sizeof(ldbb.name));
+	data.mv_data = &ldbb;
+	data.mv_size = sizeof(ldbb);
+
+	rc = mdb_put(txn, db->dbis[LDB_BOARD], &key, &data, MDB_NOOVERWRITE);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+	return rc;
+}
+
+int
+ldb_msg_scan(struct lorien_db *db,
+	     int (*msgfunc)(struct ldb_msg *))
+{
+	int rc;
+	MDB_txn *txn;
+	MDB_val key, data;
+	MDB_cursor *cursor;
+
+	struct ldb_msg *ldm = NULL;
+	size_t ldmsz = 0;
+
+	if (!db || !db->db || !msgfunc)
+		return EINVAL;
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0)
+		return rc;
+
+	rc = mdb_cursor_open(txn, db->dbis[LDB_MSG], &cursor);
+	if (rc != 0)
+		goto errtxn;
+
+	rc = mdb_cursor_get(cursor, &key, &data, MDB_FIRST);
+	while (rc == 0) {
+		if (data.mv_size <= sizeof(*ldm)) {
+			rc = EBADMSG;
+			break;
+		}
+
+		if (ldm == NULL) {
+			ldm = malloc(data.mv_size);
+			ldmsz = data.mv_size;
+		} else if (data.mv_size > ldmsz) {
+			ldm = realloc(ldm, data.mv_size);
+			ldmsz = data.mv_size;
+		}
+
+		if (ldm == NULL) {
+			rc = ENOMEM;
+			break;
+		}
+
+		memset(ldm, 0, ldmsz);
+		msg_from_media(ldm, (struct ldb_msg *)data.mv_data);
+		if (!msgfunc(ldm)) {
+			rc = ENOMEM;
+			break;
+		}
+
+		rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);
+	}
+
+	/* read only transaction, ok to abort on success */
+	if (ldm)
+		free(ldm);
+	mdb_cursor_close(cursor);
+errtxn:
+	mdb_txn_abort(txn);
+	return rc;
+}
+
+int
+ldb_msg_delete(struct lorien_db *db, struct msg *msg)
+{
+	size_t sz;
+	struct ldb_msg *ldm;
+	MDB_txn *txn;
+	MDB_val key, data;
+	int rc;
+
+	if (!msg || !msg->textsz || !msg->subjsz || !msg->subj || !msg->text)
+		return EINVAL;
+
+	sz = sizeof(struct ldb_msg) + msg->subjsz + msg->textsz;
+	ldm = calloc(1, sz);
+	if (!ldm)
+		return ENOMEM;
+
+	msg_to_media(ldm, msg);
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0) {
+		free(ldm);
+		return rc;
+	}
+
+	key.mv_data = &ldm->key;
+	key.mv_size = sizeof(ldm->key);
+	data.mv_data = ldm;
+	data.mv_size = sz;
+
+	rc = mdb_del(txn, db->dbis[LDB_MSG], &key, &data);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		free(ldm);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+	free(ldm);
+	return rc;
+}
+
+int
+ldb_msg_put(struct lorien_db *db, struct msg *msg)
+{
+	size_t sz;
+	struct ldb_msg *ldm;
+	MDB_txn *txn;
+	MDB_val key, data;
+	int rc;
+
+	if (!msg || !msg->textsz || !msg->subjsz || !msg->subj || !msg->text)
+		return EINVAL;
+
+	sz = sizeof(struct ldb_msg) + msg->subjsz + msg->textsz;
+	ldm = calloc(1, sz);
+	if (!ldm)
+		return ENOMEM;
+
+	msg_to_media(ldm, msg);
+
+	rc = mdb_txn_begin(db->db, NULL, 0, &txn);
+	if (rc != 0) {
+		free(ldm);
+		return rc;
+	}
+
+	key.mv_data = &ldm->key;
+	key.mv_size = sizeof(ldm->key);
+	data.mv_data = ldm;
+	data.mv_size = sz;
+
+	rc = mdb_put(txn, db->dbis[LDB_MSG], &key, &data, MDB_NOOVERWRITE);
+	if (rc != 0) {
+		mdb_txn_abort(txn);
+		free(ldm);
+		return rc;
+	}
+
+	rc = mdb_txn_commit(txn);
+	free(ldm);
 	return rc;
 }

@@ -1,7 +1,7 @@
 #
 # Copyright 1990-1996 Chris Eleveld
 # Copyright 1992 Robert Slaven
-# Copyright 1992-2024 Jillian Alana Bolton
+# Copyright 1992-2025 Jillian Alana Bolton
 # Copyright 1992-1995 David P. Mott
 #
 # The BSD 2-Clause License
@@ -64,13 +64,13 @@ DOC=LICENSE README CHANGELOG aprilfools.commands lorien.commands lorien.help lor
 
 MAK=.clang-format CMakeLists.txt Makefile
 
-HDR= ban.h chat.h commands.h config.h db.h files.h help.h journal.h log.h lorien.h newplayer.h parse.h platform.h security.h servsock_ssl.h trie.h utility.h
+HDR= ban.h board.h chat.h commands.h config.h db.h files.h help.h log.h lorien.h msg.h newplayer.h parse.h platform.h security.h servsock_ssl.h trie.h utility.h
 
-SRC= ban.c chat.c commands.c db.c files.c help.c dbtool.c journal.c log.c lorien.c newplayer.c parse.c security.c servsock_ssl.c trie.c utility.c
+SRC= ban.c board.c chat.c commands.c db.c files.c help.c dbtool.c  log.c lorien.c msg.c newplayer.c parse.c security.c servsock_ssl.c trie.c utility.c
 
 MAIN= lorien.o
 
-OBJ= ban.o chat.o commands.o db.o files.o help.o journal.o log.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
+OBJ= ban.o board.o chat.o commands.o db.o files.o help.o log.o msg.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
 
 # Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
 LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto -liconv
@@ -92,16 +92,13 @@ clean:
 	rm -f $(OBJ) lorien.log maxconn.h core $(TARGETS) $(MAIN)
 
 lint:
-	lint $(SRC) $(HDR) $(LIB)
+	lint $(SRC) $(HDR)
 
 $(BINARY): $(OBJ) $(MAIN)
 	$(CC) $(FLAGS) -o $(BINARY) $(OBJ) $(LIBS) $(MAIN)
 
 testhelp: help.c
 	$(CC) -DTESTHELP $(DEBUG) $(FLAGS) -o testhelp help.c $(LIBS)
-
-testring: ring.c ring.h
-	$(CC) -DTESTRING $(DEBUG) $(FLAGS) -o testring ring.c $(LIBS)
 
 testtrie: trie.c trie.h
 	$(CC) -DTESTTRIE $(DEBUG) $(FLAGS) -o testtrie trie.c $(LIBS)

@@ -29,12 +29,12 @@ Tsection| - Jillian Bolton (Creel)
 Tsection|
 Tsection| The following are available help sections:
 Tsection|
+Tsection| boards           help
 Tsection| commands         history
 Tsection| communication    info
 Tsection| environment      names
 Tsection| general          sitebans
 Tsection| havens           wrap
-Tsection| help
 Tsection|
 Tsection| If you are a sysop you can use get help on the "power" section.
 Thelp|Help: Help
@@ -95,6 +95,19 @@ Thistory|One thing Lorien has always had and always will have is power.
 Thistory|Ask your sysop what commands he/she regularly uses.  Power is necessary
 Thistory|to keep things running smoothly.
 Thistory|
+Tboards,bulletin|Help: Bulletin Boards
+Tboards,bulletin|
+Tboards,bulletin|The haven has built-in bulletin boards, each with a description, or topic.
+Tboards,bulletin|
+Tboards,bulletin|Command  Description
+Tboards,bulletin|-------  ------------------------------------------------------------------
+2Tboards,bulletin,commands,bblist|/bbadd   Add a new board. Use /bbadd <name>|<description>
+2Tboards,bulletin,commands,bbdel|/bbdel   Add a new board. Use /bbadd <name>|<description>
+Tboards,bulletin,commands,bblist|/bblist  List all bulletin boards and topics
+Tboards,bulletin,commands,bbgo|/bbgo    Choose your current board.  Use /bbgo <name>
+Tboards,bulletin,commands,bbs|/bbs     Send (Post) to your current board. Use /bbs <subj>|<message>
+Tboards,bulletin,commands,bbr|/bbr     Read your current board. Use /bbr to list messages
+Tboards,bulletin,commands,bbr|         or /bbr # to read a full message
 Tcommunication|Help: Communication
 Tcommunication|
 Tcommunication|To speak on the haven you simply type what you want to say.  You cannot

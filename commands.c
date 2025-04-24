@@ -44,6 +44,7 @@ Dave Mott          (Energizer Rabbit)
 /* take the following out of comment to enable passwords. */
 
 #include "ban.h"
+#include "board.h"
 #include "commands.h"
 #include "db.h"
 #include "files.h"
@@ -92,6 +93,9 @@ struct parse_key default_parse_table[] = {
 	{ "/banadd", CMD_BANADD },
 	{ "/bandel", CMD_BANDEL },
 	{ "/banlist", CMD_BANLIST },
+	{ "/bbadd", CMD_BOARDADD },
+	{ "/bbdel", CMD_BOARDDEL },
+	{ "/bblist", CMD_BOARDLIST },
 	{ "/beeps", CMD_BEEPS },
 	{ "/channel", CMD_TUNE },
 	{ "/doing", CMD_DOING },
@@ -364,6 +368,60 @@ enablePassword(struct splayer *pplayer, char *buf)
 	sendtoplayer(pplayer, ">> Password enabled for player.\r\n");
 
 	return PARSE_OK;
+}
+
+parse_error
+add_board(struct splayer *pplayer, char *buf)
+{
+	char *n = trimspace(buf, BUFSIZE); /* board name */
+	char *d = index(buf, '|'); /* default description */
+	int rc = 0;
+
+	if (d) {
+		*d++ = (char) 0;
+		n = trimspace(n, BUFSIZE - (n - buf));
+		d = skipspace(d);
+	}
+
+	rc = board_add(n, pplayer->name, d, time((time_t *) NULL), true);
+	if (!rc)
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> added board |%s| desc |%s|\r\n", n, d);
+	else
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> couldn't add board %s\r\n", n);
+
+	sendtoplayer(pplayer, sendbuf);
+
+	return (!rc) ? PARSE_OK : PARSERR_SUPPRESS;
+}
+parse_error
+delete_board(struct splayer *pplayer, char *buf)
+{
+	char *n = trimspace(buf, BUFSIZE); /* board name */
+	int rc = board_remove(n);
+
+	switch(rc) {
+	case 0:
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> removed board |%s|\r\n", n);
+		break;
+	case BOARDERR_NOTEMPTY:
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> board |%s| is not empty\r\n", n);
+		break;
+	case BOARDERR_NOTFOUND:
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> board |%s| not found\r\n", n);
+		break;
+	default:
+		snprintf(sendbuf, sizeof(sendbuf),
+			 ">> board |%s| unknown error %d\r\n", n, rc);
+	}
+
+	sendtoplayer(pplayer, sendbuf);
+
+	return (rc == 0) ? PARSE_OK : PARSERR_SUPPRESS;
 }
 
 parse_error
@@ -1784,6 +1842,9 @@ struct command commands[] = {
 	CMD_DECLS(CMD_BANADD, 0, 2, COSYSOP, add_ban),
 	CMD_DECLS(CMD_BANDEL, 0, 2, COSYSOP, delete_ban),
 	CMD_DECL(CMD_BANLIST, 0, 1, ban_list),
+	CMD_DECLS(CMD_BOARDADD, 0, 2, COSYSOP, add_board),
+	CMD_DECLS(CMD_BOARDDEL, 0, 2, COSYSOP, delete_board),
+	CMD_DECL(CMD_BOARDLIST, 0, 1, board_list),
 	CMD_DECL(CMD_BEEPS, 0, 1, beeps),
 	CMD_DECLS(CMD_BROADCAST, 0, 2, SYSOP, broadcast),
 	CMD_DECLS(CMD_BROADCAST2, 0, 2, SUPREME, broadcast2),

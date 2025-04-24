@@ -38,6 +38,7 @@
 #include <time.h>
 
 #include "ban.h"
+#include "board.h"
 #include "db.h"
 #include "lorien.h"
 #include "newplayer.h"
@@ -50,7 +51,10 @@ const char usage[] = "usage:\n"
 	             "\tdbtool player list\n"
 	             "\tdbtool player level <player> <level>\n"
 	"\tdbtool ban (add|del) <pattern>\n"
-	"\tdbtool ban list\n";
+	"\tdbtool ban list\n"
+	"\tdbtool board add <name> <description>\n"
+	"\tdbtool board del <name>\n"
+	"\tdbtool board list\n";
 
 size_t MAXCONN;
 time_t lorien_boot_time;
@@ -274,6 +278,71 @@ handle_ban(int argc, char *argv[], int argindex)
 }
 
 int
+print_board_cb(struct board *board)
+{
+	char buf[50];
+
+	/* ctime_r(3) includes a newline */
+	printf("board: %s owner: %s created: %sdesc: %s\n",
+	       board->name, board->owner, ctime_r(&board->created, buf),
+	       board->desc);
+	return 1;
+}
+
+void
+handle_board(int argc, char *argv[], int argindex)
+{
+	struct board board = { 0 };
+	int rc = 0;
+
+	argc--;
+
+	if (!strcmp("add", argv[argindex])) {
+		if (argc != 4) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		strlcpy(board.name, argv[++argindex], sizeof(board.name));
+		strlcpy(board.owner, "dbtool", sizeof(board.owner));
+		strlcpy(board.desc, argv[++argindex], sizeof(board.desc));
+		board.created = time((time_t *) NULL);
+		board.type = LDB_BOARD_BULLETIN;
+		rc = ldb_board_put(&lorien_db, &board);
+		if (rc == MDB_KEYEXIST) {
+			errno = rc;
+			warn("board %s already exists", board.name);
+		} else if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, "cannot create board %s", board.name);
+		}
+	} else if (!strcmp("delete", argv[argindex])) {
+//BUG: must require board type arg
+		if (argc != 3) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		strlcpy(board.name, argv[++argindex], sizeof(board.name));
+		rc = ldb_board_delete(&lorien_db, &board);
+		if (rc == MDB_NOTFOUND) {
+			errno = rc;
+			warn(">> board %s not found", board.name);
+		} else if (rc != 0) {
+			errno = rc;
+			err(EX_IOERR, ">> can't delete board %s", board.name);
+		}
+	} else if (!strcmp("list", argv[argindex])) {
+		if (argc != 2) {
+			errno = EINVAL;
+			err(EX_USAGE, usage);
+		}
+		ldb_board_scan(&lorien_db, print_board_cb);
+	} else {
+		errno = EINVAL;
+		err(EX_USAGE, usage);
+	}
+}
+
+int
 main(int argc, char *argv[])
 {
 	int rc;
@@ -303,6 +372,8 @@ main(int argc, char *argv[])
 		handle_player(argc, argv, ++argindex);
 	else if (!strcmp("ban", argv[argindex]))
 		handle_ban(argc, argv, ++argindex);
+	else if (!strcmp("board", argv[argindex]))
+		handle_board(argc, argv, ++argindex);
 	else {
 		errno = EINVAL;
 		err(EX_USAGE, usage);

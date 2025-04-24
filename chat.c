@@ -46,6 +46,7 @@
 #include <sysexits.h>
 
 #include "ban.h"
+#include "board.h"
 #include "db.h"
 #include "files.h"
 #include "log.h"
@@ -88,6 +89,8 @@ doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 
 	rc = ban_read_db();
 	fprintf(stderr, "read %d bans from database\n", rc);
+	rc = board_read_db();
+	fprintf(stderr, "read %d boards from database\n", rc);
 
 #ifdef _MSC_VER
 	{

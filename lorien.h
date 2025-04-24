@@ -49,7 +49,6 @@ Dave Mott          (Energizer Rabbit)
 #include <time.h>
 
 #include "db.h"
-#include "ring.h"
 #include "utility.h"
 
 struct servsock_handle;

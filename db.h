@@ -56,19 +56,30 @@
 
 typedef enum {
 	LDB_BOARD,
-	LDB_CHAN,
+	LDB_UNUSED, /* formerly LDB_CHAN */
 	LDB_MSG,
 	LDB_PLAYER,
 	LDB_BAN,
 	LDB_MAX,
 } ldb_type;
 
+typedef enum {
+	LDB_BOARD_BULLETIN, /* board is a bulletin board */
+	LDB_BOARD_CHANNEL, /* board is a persistent channel */
+	LDB_BOARD_MBOX, /* board is a player mailbox */
+} ldb_board_type;
+
+typedef enum {
+	LDB_BOARD_M_THREADED = 1, /* this board is threaded */
+	LDB_BOARD_M_PERSIST = 2,  /* this boards messages persist on media */
+} ldb_board_mask;
+
 struct ldb_player {
 	/* key */
 	char name[LORIEN_V0174_NAME];
 
 	/* data */
-	char password[LORIEN_V0174_PASS]; /* BUG: encrypt with libssl */
+	char password[LORIEN_V0174_PASS];
 	char host[LORIEN_V0174_NAME];
 	int seclevel;
 	int hilite;
@@ -80,35 +91,45 @@ struct ldb_player {
 	time_t login;      /* NOT last seen, too many updates! */
 };
 
-struct ldb_chan {
-	/* key */
-	char name[LORIEN_V0174_CHAN];
-
-	/* data */
-	char owner[LORIEN_V0174_NAME];
-	char desc[LORIEN_V0178_DESC];
-	time_t created;
+struct ldb_board_key {
+	char name[LORIEN_V0174_NAME];
+	ldb_board_type type;
 };
 
 struct ldb_board {
 	/* key */
-	char name[LORIEN_V0174_NAME];
+	struct ldb_board_key key;
 
 	/* data */
-	char owner[LORIEN_V0174_NAME];
 	time_t created;		    /* created */
+	ldb_board_mask flags;
+	char name[LORIEN_V0174_NAME];
+	char owner[LORIEN_V0174_NAME];
 	char desc[LORIEN_V0178_DESC];
+};
+
+struct ldb_msg_key {
+	time_t created;
+	int32_t created_usec;
 };
 
 struct ldb_msg {
 	/* key */
+	struct ldb_msg_key key;
+
+	/* metadata - key of in-thread parent */
+	time_t parent_created;
+	int32_t parent_created_usec;
+
+	/* metadata - payload size, key of containing board, channel, or mbox */
+	ldb_board_type board_type;
+	size_t subjsz;
+	size_t textsz;
 	char board[LORIEN_V0174_NAME];
 	char owner[LORIEN_V0174_NAME];
-	char subj[LORIEN_V0174_NAME];
 
 	/* data */
-	time_t created;
-	char text[BUFSIZE];
+	char data[];
 };
 
 struct ldb_ban {
@@ -116,7 +137,7 @@ struct ldb_ban {
 	char pattern[LORIEN_V0178_BAN];
 
 	/* data */
-	int regex;     /* not yet supported */
+	int flags;
 	char owner[LORIEN_V0174_NAME];
 	time_t created;
 };
@@ -146,5 +167,17 @@ struct ban_item;
 int ldb_ban_delete(struct lorien_db *db, struct ban_item *ban);
 int ldb_ban_put(struct lorien_db *db, struct ban_item *ban);
 int ldb_ban_scan(struct lorien_db *db, int (*banfunc)(struct ban_item *));
+
+struct board;
+
+int ldb_board_delete(struct lorien_db *db, struct board *board);
+int ldb_board_put(struct lorien_db *db, struct board *board);
+int ldb_board_scan(struct lorien_db *db, int (*boardfunc)(struct board *));
+
+struct msg;
+
+int ldb_msg_delete(struct lorien_db *db, struct msg *msg);
+int ldb_msg_put(struct lorien_db *db, struct msg *msg);
+int ldb_msg_scan(struct lorien_db *db, int (*msgfunc)(struct ldb_msg *));
 
 #endif /* _LORIENDB_H_ */
