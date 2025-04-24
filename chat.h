@@ -31,4 +31,6 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-int doit(int port, int sslport);
+struct servsock_handle;
+
+int doit(struct servsock_handle *handle, struct servsock_handle *sslhandle);

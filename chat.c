@@ -60,7 +60,7 @@ struct servsock_handle *sslhandle = NULL; /* ssl listener */
 char *logfile = LOGFILE;
 
 int
-doit(int port, int sslport)
+doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 {
 	fd_set needread; /* for seeing which fds we need to read from */
 	int num;	 /* the number of needy fds */
@@ -102,30 +102,6 @@ doit(int port, int sslport)
 		}
 	}
 #endif
-
-	if (gethostname(sendbuf, sendbufsz) == -1) {
-		fprintf(stderr, "lorien: Error getting hostname!\n");
-		exit(2);
-	}
-
-	if (port) {
-		fprintf(stderr, "Establishing socket on %s on port %d...\n",
-		    sendbuf, port);
-		handle = getsock_ssl(sendbuf, port, false);
-		fprintf(stderr, "Socket established on port %d.\n", port);
-	}
-
-	if (sslport) {
-		fprintf(stderr, "Establishing socket on %s on port +%d...\n",
-		    sendbuf, sslport);
-		sslhandle = getsock_ssl(sendbuf, sslport, true);
-		fprintf(stderr, "Socket established on +port %d.\n", sslport);
-	}
-
-	printf("redirecting stderr to %s\n", logfile);
-	if (freopen(logfile, "a", stderr) == NULL)
-		err(EX_OSERR, "unable to open %s", logfile);
-	err_set_file(stderr);
 
 	MAXCONN = gettablesize();
 

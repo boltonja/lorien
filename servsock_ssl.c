@@ -33,6 +33,7 @@
 
 #include <assert.h>
 #include <err.h>
+#include <netinet/tcp.h>
 #include <sysexits.h>
 #include <unistd.h>
 
@@ -112,20 +113,34 @@ getsock_ssl(char *address, int port, bool use_ssl)
 	/* get a fresh socket */
 	ssh->sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (ssh->sock == -1)
-		err(EX_OSERR, "Unable to get a new socket");
+		err(EX_CANTCREAT, "Unable to get a new socket");
 
 	/* decode address */
 	if (isdigit(*address)) {
 		if ((tmpaddr.s_addr = inet_addr(address)) ==
 		    (u_short)INADDR_NONE)
-			err(EX_OSERR, "Unable to figure out numeric address");
+			err(EX_NOHOST, "unable to get inet addr %s", address);
 	} else {
 		if ((tmphost = gethostbyname(address)) == (struct hostent *)0)
-			err(EX_OSERR, "unable to get host adress:");
+			err(EX_NOHOST, "unable to get host adress");
+
 		memcpy((char *)&tmpaddr, tmphost->h_addr,
 		    sizeof(struct in_addr));
 	}
 
+#if 0
+	/* on BSD (and macOS) this slows new connections down, and it does not
+	 * guarantee re-use before the usual 2 minute TCP time out
+	 */
+	int so_true = 1;
+	struct protoent *pptr = getprotobyname("tcp");
+	int p_proto = (pptr) ? pptr->p_proto : 6; /* tcp should be 6... */
+	endprotoent();
+
+	setsockopt(ssh->sock, p_proto, SO_REUSEADDR, &so_true, sizeof(so_true));
+	setsockopt(ssh->sock, p_proto, SO_REUSEPORT, &so_true, sizeof(so_true));
+#endif
+	
 	/* set up socket address */
 	memcpy((char *)&(saddr.sin_addr), (char *)&tmpaddr,
 	    sizeof(struct in_addr));
@@ -135,21 +150,11 @@ getsock_ssl(char *address, int port, bool use_ssl)
 
 	/* attempt to bind the socket to our address */
 	if (bind(ssh->sock, (struct sockaddr *)&saddr,
-		sizeof(struct sockaddr_in)) == -1)
-		err(EX_OSERR, "Error attempting to bind");
+		 sizeof(struct sockaddr_in)) == -1)
+		 err(EX_CANTCREAT, "Unable to bind port %d", port);
 
-	struct protoent *pptr = getprotobyname("tcp");
-	int p_proto = (pptr) ? pptr->p_proto : 6; /* tcp should be 6... */
-	endprotoent();
-
-	int so_true = 1;
-
-	setsockopt(ssh->sock, p_proto, SO_REUSEADDR, &so_true, sizeof(so_true));
-#ifdef SO_REUSEPORT
-	setsockopt(ssh->sock, p_proto, SO_REUSEPORT, &so_true, sizeof(so_true));
-#endif
 	if (listen(ssh->sock, 5) == -1)
-		err(EX_OSERR, "Error listening");
+		err(EX_SOFTWARE, "listen() failed");
 
 	if (use_ssl) {
 		int rc;
@@ -159,10 +164,11 @@ getsock_ssl(char *address, int port, bool use_ssl)
 
 		ssh->ctx = SSL_CTX_new(TLS_server_method());
 		if (!ssh->ctx)
-			err(EX_UNAVAILABLE, "can't create SSL context");
+			err(EX_CANTCREAT, "can't create SSL context");
 
 		rc = SSL_CTX_set_min_proto_version(ssh->ctx, TLS1_2_VERSION);
-		assert(rc == 1);
+		if (!rc)
+			err(EX_SOFTWARE, "can't set minimum TLS version 1.2");
 
 		rc = SSL_CTX_use_certificate_file(ssh->ctx, "cert.pem",
 		    SSL_FILETYPE_PEM);
@@ -212,7 +218,7 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 	struct protoent *pptr = getprotobyname("tcp");
 	int p_proto = (pptr) ? pptr->p_proto : 6; /* tcp should be 6... */
 
-	setsockopt(ns, p_proto, SO_NOSIGPIPE, &so_true, sizeof(so_true));
+	setsockopt(ns, p_proto, TCP_NODELAY, &so_true, sizeof(so_true));
 
 	ssc->sock = ns;
 	if (ssh->use_ssl) {

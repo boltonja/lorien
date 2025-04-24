@@ -53,13 +53,18 @@
 #include "lorien.h"
 #include "platform.h"
 #include "security.h"
+#include "servsock_ssl.h"
 
 time_t lorien_boot_time = 0;
 
 int handleargs(int argc, char **argv);
 
-int port = 0;
-int sslport = 0;
+static int port = 0;
+static int sslport = 0;
+
+static struct servsock_handle *handle;
+static struct servsock_handle *sslhandle;
+static char *logfile = NULL;
 
 int
 main(int argc, char **argv)
@@ -68,7 +73,7 @@ main(int argc, char **argv)
 
 	handleargs(argc - 1, argv + 1);
 
-	doit(port, sslport);
+	doit(handle, sslhandle);
 
 	return 0;
 }
@@ -128,6 +133,36 @@ handleargs(int argc, char **argv)
 	}
 
 	printf("starting lorien on port %d/+%d.\n", port, sslport);
+
+	if (gethostname(sendbuf, sizeof(sendbuf)) == -1) {
+		fprintf(stderr, "lorien: Error getting hostname!\n");
+		exit(2);
+	}
+
+	if (port) {
+		printf("Establishing socket on %s on port %d...\n",
+			sendbuf, port);
+		handle = getsock_ssl(sendbuf, port, false);
+		if (!handle)
+			err(EX_OSERR, "can't bind non-ssl port %d", port);
+		printf("Socket established on port %d.\n", port);
+	}
+
+	if (sslport) {
+		printf("Establishing socket on %s on port +%d...\n",
+			sendbuf, sslport);
+		sslhandle = getsock_ssl(sendbuf, sslport, true);
+		if (!sslhandle)
+			err(EX_OSERR, "can't bind ssl port %d", sslport);
+		printf("Socket established on port +%d.\n", sslport);
+	}
+
+	if (logfile) {
+		printf("redirecting stderr to %s\n", logfile);
+		if (freopen(logfile, "a", stderr) == NULL)
+			err(EX_OSERR, "unable to open logfile %s", logfile);
+		err_set_file(stderr);
+	}
 
 #ifndef _MSC_VER
 	if (fdaemon) {
