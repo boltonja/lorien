@@ -37,6 +37,7 @@
 #define _BOARD_H_
 
 #include <sys/queue.h>
+
 #include <stdbool.h>
 
 #include "db.h"
@@ -55,7 +56,7 @@ struct board {
 };
 
 enum {
-	BOARD_SUCCESS=0,
+	BOARD_SUCCESS = 0,
 	BOARDERR_DBFAIL,
 	BOARDERR_NOMEM,
 	BOARDERR_NOTEMPTY,
@@ -63,7 +64,7 @@ enum {
 };
 
 int board_add(const char *name, const char *owner, const char *desc,
-	      time_t created, bool save_board);
+    time_t created, bool save_board);
 struct board *board_get(const char *name);
 parse_error board_list(struct splayer *who);
 int board_read_db(void);

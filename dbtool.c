@@ -47,14 +47,14 @@
 
 const char usage[] = "usage:\n"
 		     "\tdbtool player (add|auth|update) <player> <password>\n"
-	             "\tdbtool player get <player>\n"
-	             "\tdbtool player list\n"
-	             "\tdbtool player level <player> <level>\n"
-	"\tdbtool ban (add|del) <pattern>\n"
-	"\tdbtool ban list\n"
-	"\tdbtool board add <name> <description>\n"
-	"\tdbtool board del <name>\n"
-	"\tdbtool board list\n";
+		     "\tdbtool player get <player>\n"
+		     "\tdbtool player list\n"
+		     "\tdbtool player level <player> <level>\n"
+		     "\tdbtool ban (add|del) <pattern>\n"
+		     "\tdbtool ban list\n"
+		     "\tdbtool board add <name> <description>\n"
+		     "\tdbtool board del <name>\n"
+		     "\tdbtool board list\n";
 
 size_t MAXCONN;
 time_t lorien_boot_time;
@@ -93,7 +93,7 @@ handle_player(int argc, char *argv[], int argindex)
 		} else if (rc == 0) {
 			assert(!strcmp(p.name, name));
 			printf("player %s level %d password %s", p.name,
-			       p.seclevel, p.password);
+			    p.seclevel, p.password);
 		} else {
 			errno = rc;
 			err(EX_IOERR, ">> can't read player %s", name);
@@ -223,7 +223,7 @@ print_ban_cb(struct ban_item *ban)
 
 	/* ctime_r(3) includes a newline */
 	printf("ban: %s owner: %s created: %s", ban->pattern, ban->owner,
-	       ctime_r(&ban->created, buf));
+	    ctime_r(&ban->created, buf));
 	return 1;
 }
 
@@ -242,7 +242,7 @@ handle_ban(int argc, char *argv[], int argindex)
 		}
 		strlcpy(ban.pattern, argv[++argindex], sizeof(ban.pattern));
 		strlcpy(ban.owner, "dbtool", sizeof(ban.owner));
-		ban.created = time((time_t *) NULL);
+		ban.created = time((time_t *)NULL);
 		rc = ldb_ban_put(&lorien_db, &ban);
 		if (rc == MDB_KEYEXIST) {
 			errno = rc;
@@ -283,9 +283,8 @@ print_board_cb(struct board *board)
 	char buf[50];
 
 	/* ctime_r(3) includes a newline */
-	printf("board: %s owner: %s created: %sdesc: %s\n",
-	       board->name, board->owner, ctime_r(&board->created, buf),
-	       board->desc);
+	printf("board: %s owner: %s created: %sdesc: %s\n", board->name,
+	    board->owner, ctime_r(&board->created, buf), board->desc);
 	return 1;
 }
 
@@ -305,7 +304,7 @@ handle_board(int argc, char *argv[], int argindex)
 		strlcpy(board.name, argv[++argindex], sizeof(board.name));
 		strlcpy(board.owner, "dbtool", sizeof(board.owner));
 		strlcpy(board.desc, argv[++argindex], sizeof(board.desc));
-		board.created = time((time_t *) NULL);
+		board.created = time((time_t *)NULL);
 		board.type = LDB_BOARD_BULLETIN;
 		rc = ldb_board_put(&lorien_db, &board);
 		if (rc == MDB_KEYEXIST) {
@@ -316,7 +315,7 @@ handle_board(int argc, char *argv[], int argindex)
 			err(EX_IOERR, "cannot create board %s", board.name);
 		}
 	} else if (!strcmp("delete", argv[argindex])) {
-//BUG: must require board type arg
+		// BUG: must require board type arg
 		if (argc != 3) {
 			errno = EINVAL;
 			err(EX_USAGE, usage);

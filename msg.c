@@ -42,7 +42,7 @@
  *       (parent)  | | (threads)
  *                 | v
  *                 |msg4|
- *                  
+ *
  * (continues multilevel ad infinitum)
  *
  */
@@ -51,8 +51,8 @@
 #include <sysexits.h>
 
 #include "board.h"
-#include "msg.h"
 #include "lorien.h"
+#include "msg.h"
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
@@ -69,7 +69,7 @@ msgindex_add(struct msg *msg)
 		return MSGERR_INVAL;
 
 	leaf = trie_add(&msgindex, (void *)&msg->key, sizeof(msg->key), msg,
-			NULL);
+	    NULL);
 	if (!leaf)
 		return MSGERR_NOMEM;
 
@@ -105,7 +105,8 @@ msgindex_find(struct msgkey *key)
 
 /* add a new message to the board in memory */
 int
-msg_add(struct msg *msg) {
+msg_add(struct msg *msg)
+{
 	int rc;
 
 	if (!msg)
@@ -182,7 +183,7 @@ msg_rm(struct msg *msg)
 		return MSGERR_DBFAIL;
 
 	msgindex_del(msg);
-	
+
 	if (msg->parent)
 		TAILQ_REMOVE(&msg->parent->threads, msg, entries);
 	else
@@ -193,8 +194,7 @@ msg_rm(struct msg *msg)
 
 struct msg *
 msg_new(struct board *board, struct msg *parent, const char *owner,
-	const char *subj, size_t subjsz, const char *text,
-	size_t textsz)
+    const char *subj, size_t subjsz, const char *text, size_t textsz)
 {
 	struct msg *msg;
 	size_t sz;
@@ -214,7 +214,7 @@ msg_new(struct board *board, struct msg *parent, const char *owner,
 
 	msg->board = board;
 	msg->parent = parent;
-	TAILQ_INIT(&msg->threads); 
+	TAILQ_INIT(&msg->threads);
 
 	strlcpy(msg->owner, owner, sizeof(msg->owner));
 	strlcpy(msg->subj, subj, subjsz);

@@ -33,6 +33,10 @@
  *
  */
 
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <err.h>
@@ -41,10 +45,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/resource.h>
 
 #include "trie.h"
 
@@ -155,8 +155,7 @@ trie_delete(trie *root, unsigned char *key, size_t ksz, bool free_payloads)
  *
  */
 trie *
-trie_add(trie *root, unsigned char *key, size_t ksz, void *payload,
-	 int *status)
+trie_add(trie *root, unsigned char *key, size_t ksz, void *payload, int *status)
 {
 	if (!root)
 		return NULL;
@@ -226,7 +225,7 @@ trie_preorder(trie *root, void *ctx, int (*func)(void *, void *), int lowfilt,
 		if (root->leaves[i]) {
 			if (root->leaves[i]->payload) {
 				frc = func(ctx,
-					   (void *)root->leaves[i]->payload);
+				    (void *)root->leaves[i]->payload);
 				if (!frc)
 					return frc;
 			}
@@ -337,7 +336,7 @@ trie_get(trie *root, unsigned char *key, size_t ksz)
  */
 trie *
 trie_match(trie *root, unsigned char *key, size_t ksz, size_t *matched,
-	   int mode)
+    int mode)
 {
 	trie *leaf;
 	unsigned char blindk;
@@ -352,7 +351,7 @@ trie_match(trie *root, unsigned char *key, size_t ksz, size_t *matched,
 		return NULL;
 
 	if (!ksz) {
-                /* end of supplied key, prefer exact match*/
+		/* end of supplied key, prefer exact match*/
 		if (!root->payload && (mode & trie_keymatch_abbrev)) {
 			/* try to complete an abbreviation */
 			if (mode & trie_keymatch_ambiguous)
@@ -367,15 +366,15 @@ trie_match(trie *root, unsigned char *key, size_t ksz, size_t *matched,
 		leaf = NULL;
 		if (root->leaves[*key])
 			leaf = trie_match(root->leaves[*key], key + 1, ksz - 1,
-					  &reclen, mode);
+			    &reclen, mode);
 
 		if ((!leaf) && (mode & trie_keymatch_caseblind) &&
 		    isalpha(*key)) {
 			blindk = isupper(*key) ? tolower(*key) : toupper(*key);
 			leaf = NULL;
 			if (root->leaves[blindk])
-				trie_match(root->leaves[blindk], key + 1, ksz - 1,
-					   &reclen, mode);
+				trie_match(root->leaves[blindk], key + 1,
+				    ksz - 1, &reclen, mode);
 		}
 		if (leaf)
 			*matchlen = 1 + reclen;
@@ -402,23 +401,20 @@ trie_match(trie *root, unsigned char *key, size_t ksz, size_t *matched,
 		}
 		return leaf;
 	}
-
 }
 
 #ifdef TESTTRIE
-char *keys[] = { "one", "two", "three", "four", "five", "six",
-		 "sixteen", "seven", "seventy", "seventy-five",
-		 "seventy-eight", "eight", "nine", "ten", NULL };
-char *payloads[] = { "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX",
-		     "SIXTEEN", "SEVEN", "SEVENTY", "SEVENTY-FIVE",
-		     "SEVENTY-EIGHT", "EIGHT", "NINE", "TEN", NULL };
+char *keys[] = { "one", "two", "three", "four", "five", "six", "sixteen",
+	"seven", "seventy", "seventy-five", "seventy-eight", "eight", "nine",
+	"ten", NULL };
+char *payloads[] = { "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SIXTEEN",
+	"SEVEN", "SEVENTY", "SEVENTY-FIVE", "SEVENTY-EIGHT", "EIGHT", "NINE",
+	"TEN", NULL };
 
-char *sorted12[] = {
-	"EIGHT", "FIVE", "FOUR", "NINE", "ONE", "SEVEN", "SEVENTY",
+char *sorted12[] = { "EIGHT", "FIVE", "FOUR", "NINE", "ONE", "SEVEN", "SEVENTY",
 	"SIX", "SIXTEEN", "TEN", "THREE", "TWO", NULL };
 
-char *sorted14[] = {
-	"EIGHT", "FIVE", "FOUR", "NINE", "ONE", "SEVEN", "SEVENTY",
+char *sorted14[] = { "EIGHT", "FIVE", "FOUR", "NINE", "ONE", "SEVEN", "SEVENTY",
 	"SEVENTY-EIGHT", "SEVENTY-FIVE", "SIX", "SIXTEEN", "TEN", "THREE",
 	"TWO", NULL };
 
@@ -552,15 +548,14 @@ main(int argc, char *argv[])
 	printf("trie population test...");
 	fflush(stdout);
 	for (int i = 0; keys[i] != NULL; i++) {
-		leaf = trie_add(test_trie, (unsigned char *) keys[i],
-				strlen(keys[i]), payloads[i], NULL);
+		leaf = trie_add(test_trie, (unsigned char *)keys[i],
+		    strlen(keys[i]), payloads[i], NULL);
 		assert(leaf);
 		assert(trie_payload(leaf) == (void *)payloads[i]);
 
 		if (keys[i + 1]) {
-			leaf = trie_get(test_trie,
-					(unsigned char *)keys[i + 1],
-					strlen(keys[i + 1]));
+			leaf = trie_get(test_trie, (unsigned char *)keys[i + 1],
+			    strlen(keys[i + 1]));
 			assert(leaf == NULL);
 		}
 	}
@@ -641,7 +636,7 @@ main(int argc, char *argv[])
 	printf("trie exact match test...");
 	fflush(stdout);
 	leaf = trie_match(test_trie, (unsigned char *)"five", strlen("five"),
-			  &matched, trie_keymatch_exact);
+	    &matched, trie_keymatch_exact);
 	assert(leaf);
 	assert(leaf->payload);
 	rc = strcmp((char *)trie_payload(leaf), "FIVE");
@@ -653,7 +648,7 @@ main(int argc, char *argv[])
 	printf("trie exact match negative test...");
 	fflush(stdout);
 	leaf = trie_match(test_trie, (unsigned char *)"fiv", strlen("fiv"),
-			  &matched, trie_keymatch_exact);
+	    &matched, trie_keymatch_exact);
 	assert(!leaf);
 	/* contents of matched are undefined if leaf is null */
 	assert(NULL == trie_payload(leaf));
@@ -663,7 +658,7 @@ main(int argc, char *argv[])
 	printf("trie substring match test...");
 	fflush(stdout);
 	leaf = trie_match(test_trie, (unsigned char *)"seventy",
-			  strlen("seventy"), &matched, trie_keymatch_substring);
+	    strlen("seventy"), &matched, trie_keymatch_substring);
 	assert(leaf);
 	assert(7 == matched);
 	assert(trie_payload(leaf));
@@ -675,16 +670,15 @@ main(int argc, char *argv[])
 	printf("trie abbrev match negative test...");
 	fflush(stdout);
 	leaf = trie_match(test_trie, (unsigned char *)"seventy-",
-			  strlen("seventy-"), &matched, trie_keymatch_abbrev);
+	    strlen("seventy-"), &matched, trie_keymatch_abbrev);
 	assert(!leaf);
 	printf(" passed\n");
 	fflush(stdout);
 
 	printf("trie substring abbrev match test...");
 	fflush(stdout);
-	leaf = trie_match(test_trie, (unsigned char *)"sixt",
-			  strlen("sixt"), &matched,
-			  trie_keymatch_substring_abbrev);
+	leaf = trie_match(test_trie, (unsigned char *)"sixt", strlen("sixt"),
+	    &matched, trie_keymatch_substring_abbrev);
 	assert(leaf);
 	assert(4 == matched);
 	assert(trie_payload(leaf));
@@ -696,8 +690,7 @@ main(int argc, char *argv[])
 	printf("trie substring first match test...");
 	fflush(stdout);
 	leaf = trie_match(test_trie, (unsigned char *)"seventy-",
-			  strlen("seventy-"), &matched,
-			  trie_keymatch_substring_first);
+	    strlen("seventy-"), &matched, trie_keymatch_substring_first);
 	assert(leaf);
 	assert(8 == matched);
 	assert(trie_payload(leaf));
@@ -708,14 +701,16 @@ main(int argc, char *argv[])
 
 	printf("trie delete test...");
 	fflush(stdout);
-	rc = trie_delete(test_trie, (unsigned char *)"six", strlen("six"), false);
+	rc = trie_delete(test_trie, (unsigned char *)"six", strlen("six"),
+	    false);
 	assert(1 == rc);
 	printf(" passed\n");
 	fflush(stdout);
 
 	printf("trie delete negative test...");
 	fflush(stdout);
-	rc = trie_delete(test_trie, (unsigned char *)"six", strlen("six"), false);
+	rc = trie_delete(test_trie, (unsigned char *)"six", strlen("six"),
+	    false);
 	assert(0 == rc);
 	printf(" passed\n");
 	fflush(stdout);

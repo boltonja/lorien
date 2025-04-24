@@ -50,9 +50,9 @@
 /* RFC 1035 says dns names are limited to 255 characters, we add a NUL */
 #define LORIEN_V0178_BAN 256
 
-#define MAX_PASS LORIEN_V0174_PASS
-#define MAX_NAME LORIEN_V0174_NAME
-#define MAX_CHAN LORIEN_V0174_CHAN
+#define MAX_PASS	 LORIEN_V0174_PASS
+#define MAX_NAME	 LORIEN_V0174_NAME
+#define MAX_CHAN	 LORIEN_V0174_CHAN
 
 typedef enum {
 	LDB_BOARD,
@@ -65,8 +65,8 @@ typedef enum {
 
 typedef enum {
 	LDB_BOARD_BULLETIN, /* board is a bulletin board */
-	LDB_BOARD_CHANNEL, /* board is a persistent channel */
-	LDB_BOARD_MBOX, /* board is a player mailbox */
+	LDB_BOARD_CHANNEL,  /* board is a persistent channel */
+	LDB_BOARD_MBOX,	    /* board is a player mailbox */
 } ldb_board_type;
 
 typedef enum {
@@ -86,9 +86,9 @@ struct ldb_player {
 	int privs;
 	int wrap;
 	int flags;
-	int pagelen;	   /* for paginating, e.g., boards */
-	time_t created;    /* creation time */
-	time_t login;      /* NOT last seen, too many updates! */
+	int pagelen;	/* for paginating, e.g., boards */
+	time_t created; /* creation time */
+	time_t login;	/* NOT last seen, too many updates! */
 };
 
 struct ldb_board_key {
@@ -101,7 +101,7 @@ struct ldb_board {
 	struct ldb_board_key key;
 
 	/* data */
-	time_t created;		    /* created */
+	time_t created; /* created */
 	ldb_board_mask flags;
 	char name[LORIEN_V0174_NAME];
 	char owner[LORIEN_V0174_NAME];

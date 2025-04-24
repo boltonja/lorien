@@ -31,9 +31,10 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <netinet/tcp.h>
+
 #include <assert.h>
 #include <err.h>
-#include <netinet/tcp.h>
 #include <sysexits.h>
 #include <unistd.h>
 
@@ -151,7 +152,7 @@ getsock_ssl(char *address, int port, bool use_ssl)
 	/* attempt to bind the socket to our address */
 	if (bind(ssh->sock, (struct sockaddr *)&saddr,
 		 sizeof(struct sockaddr_in)) == -1)
-		 err(EX_CANTCREAT, "Unable to bind port %d", port);
+		err(EX_CANTCREAT, "Unable to bind port %d", port);
 
 	if (listen(ssh->sock, 5) == -1)
 		err(EX_SOFTWARE, "listen() failed");
@@ -225,6 +226,7 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 		int rc;
 		ssc->use_ssl = true;
 		ssc->ssl = SSL_new(ssh->ctx);
+
 		if (!ssc->ssl) {
 			e = ENOMEM;
 			logerror("SSL_new() failed", e);

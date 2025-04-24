@@ -64,27 +64,29 @@ const char *ldb_names[] = {
 	(char *)0,
 };
 
-static
-time_t htobetime(time_t bt) {
+static time_t
+htobetime(time_t bt)
+{
 	errno = EINVAL;
 
 	if (sizeof(time_t) == 8)
-		return (time_t) htobe64((uint64_t) bt);
+		return (time_t)htobe64((uint64_t)bt);
 	else if (sizeof(time_t) == 4)
-		return (time_t)htobe32((uint32_t) bt);
+		return (time_t)htobe32((uint32_t)bt);
 
 	err(EX_DATAERR, "time_t format is unrecognized");
 	return 0; /* NOTREACHED */
 }
 
-static
-time_t betimetoh(time_t ht) {
+static time_t
+betimetoh(time_t ht)
+{
 	errno = EINVAL;
 
 	if (sizeof(time_t) == 8)
-		return (time_t) be64toh((uint64_t) ht);
+		return (time_t)be64toh((uint64_t)ht);
 	else if (sizeof(time_t) == 4)
-		return (time_t)be32toh((uint32_t) ht);
+		return (time_t)be32toh((uint32_t)ht);
 
 	err(EX_DATAERR, "time_t format is unrecognized");
 	return 0; /* NOTREACHED */
@@ -408,8 +410,7 @@ ldb_ban_delete(struct lorien_db *db, struct ban_item *ban)
 }
 
 int
-ldb_ban_scan(struct lorien_db *db,
-	     int (*banfunc)(struct ban_item *))
+ldb_ban_scan(struct lorien_db *db, int (*banfunc)(struct ban_item *))
 {
 	int rc;
 	MDB_txn *txn;
@@ -601,8 +602,7 @@ ldb_board_put(struct lorien_db *db, struct board *board)
 }
 
 int
-ldb_msg_scan(struct lorien_db *db,
-	     int (*msgfunc)(struct ldb_msg *))
+ldb_msg_scan(struct lorien_db *db, int (*msgfunc)(struct ldb_msg *))
 {
 	int rc;
 	MDB_txn *txn;

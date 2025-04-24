@@ -140,8 +140,8 @@ handleargs(int argc, char **argv)
 	}
 
 	if (port) {
-		printf("Establishing socket on %s on port %d...\n",
-			sendbuf, port);
+		printf("Establishing socket on %s on port %d...\n", sendbuf,
+		    port);
 		handle = getsock_ssl(sendbuf, port, false);
 		if (!handle)
 			err(EX_OSERR, "can't bind non-ssl port %d", port);
@@ -149,8 +149,8 @@ handleargs(int argc, char **argv)
 	}
 
 	if (sslport) {
-		printf("Establishing socket on %s on port +%d...\n",
-			sendbuf, sslport);
+		printf("Establishing socket on %s on port +%d...\n", sendbuf,
+		    sslport);
 		sslhandle = getsock_ssl(sendbuf, sslport, true);
 		if (!sslhandle)
 			err(EX_OSERR, "can't bind ssl port %d", sslport);

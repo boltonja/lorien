@@ -37,6 +37,7 @@
 #define _BAN_H_
 
 #include <sys/queue.h>
+
 #include <stdbool.h>
 
 #include "db.h"

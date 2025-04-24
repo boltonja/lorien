@@ -35,8 +35,9 @@
 #ifndef _TRIE_H_
 #define _TRIE_H_
 
-#include <stdbool.h>
 #include <sys/types.h>
+
+#include <stdbool.h>
 
 #define TRIE_SPAN 256
 
@@ -69,13 +70,13 @@ enum trie_match_modes {		 /* for constructing bitmasks */
 };
 
 trie *trie_add(trie *root, unsigned char *key, size_t keysz, void *payload,
-	       int *status);
+    int *status);
 int trie_collapse(trie *root, bool free_payloads);
 int trie_delete(trie *root, unsigned char *key, size_t ksz, bool free_payloads);
 trie *trie_find_first(trie *root);
 trie *trie_get(trie *root, unsigned char *key, size_t ksz);
 trie *trie_match(trie *root, unsigned char *key, size_t keysz, size_t *matched,
-		 int mode);
+    int mode);
 trie *trie_new(void);
 void *trie_payload(trie *root);
 int trie_preorder(trie *root, void *ctx, int (*func)(void *, void *),

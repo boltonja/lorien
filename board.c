@@ -51,7 +51,7 @@ board_read_cb(struct board *board)
 {
 	boards_read_from_db++;
 	return board_add(board->name, board->owner, board->desc, board->created,
-			 false);
+	    false);
 }
 
 int
@@ -63,7 +63,7 @@ board_read_db(void)
 
 int
 board_add(const char *name, const char *owner, const char *desc, time_t created,
-	  bool save_board)
+    bool save_board)
 {
 	struct board *curr = malloc(sizeof(struct board));
 
@@ -131,14 +131,13 @@ board_list(struct splayer *who)
 	char sendbuf[OBUFSIZE];
 	struct board *curr = NULL;
 
-	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> Bulletin Boards:\r\n");
+	snprintf(sendbuf, sizeof(sendbuf), ">> Bulletin Boards:\r\n");
 	sendtoplayer(who, sendbuf);
 
 	SLIST_FOREACH(curr, &boardhead, entries) {
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> Owner: %s\r\n>> Board: %s\r\n>>        %s\r\n",
-			 curr->owner, curr->name, curr->desc);
+		    ">> Owner: %s\r\n>> Board: %s\r\n>>        %s\r\n",
+		    curr->owner, curr->name, curr->desc);
 		sendtoplayer(who, sendbuf);
 	}
 

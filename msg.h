@@ -37,6 +37,7 @@
 #define _MSG_H_
 
 #include <sys/queue.h>
+
 #include <stdbool.h>
 
 #include "db.h"
@@ -45,7 +46,7 @@
 
 struct msgkey {
 	time_t created;
-	int32_t created_usec;	
+	int32_t created_usec;
 };
 
 struct board;
@@ -81,6 +82,5 @@ int msg_mk(struct msg *msg);
 int msg_rm(struct msg *msg);
 struct msg *msg_find(struct msgkey *key);
 struct msg *msg_new(struct board *board, struct msg *parent, const char *owner,
-		    const char *subj, size_t subjsz, const char *text,
-		    size_t textsz);
+    const char *subj, size_t subjsz, const char *text, size_t textsz);
 #endif

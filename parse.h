@@ -169,14 +169,10 @@ struct command {
 	char *name;   /* for matching while dynamically defining parse tables */
 };
 
-#define CMD_DECLS(cmd, class, num, lev, func)    \
-	{                                        \
-		cmd, class, num, lev, func, #cmd \
-	}
-#define CMD_DECL(cmd, class, num, func)                      \
-	{                                                    \
-		cmd, class, num, JOEUSER, (void *)func, #cmd \
-	}
+#define CMD_DECLS(cmd, class, num, lev, func) \
+	{ cmd, class, num, lev, func, #cmd }
+#define CMD_DECL(cmd, class, num, func) \
+	{ cmd, class, num, JOEUSER, (void *)func, #cmd }
 
 enum { PARSE_KEY_MAX = 50 };
 

@@ -374,22 +374,22 @@ parse_error
 add_board(struct splayer *pplayer, char *buf)
 {
 	char *n = trimspace(buf, BUFSIZE); /* board name */
-	char *d = index(buf, '|'); /* default description */
+	char *d = index(buf, '|');	   /* default description */
 	int rc = 0;
 
 	if (d) {
-		*d++ = (char) 0;
+		*d++ = (char)0;
 		n = trimspace(n, BUFSIZE - (n - buf));
 		d = skipspace(d);
 	}
 
-	rc = board_add(n, pplayer->name, d, time((time_t *) NULL), true);
+	rc = board_add(n, pplayer->name, d, time((time_t *)NULL), true);
 	if (!rc)
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> added board |%s| desc |%s|\r\n", n, d);
+		    ">> added board |%s| desc |%s|\r\n", n, d);
 	else
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> couldn't add board %s\r\n", n);
+		    ">> couldn't add board %s\r\n", n);
 
 	sendtoplayer(pplayer, sendbuf);
 
@@ -401,22 +401,22 @@ delete_board(struct splayer *pplayer, char *buf)
 	char *n = trimspace(buf, BUFSIZE); /* board name */
 	int rc = board_remove(n);
 
-	switch(rc) {
+	switch (rc) {
 	case 0:
-		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> removed board |%s|\r\n", n);
+		snprintf(sendbuf, sizeof(sendbuf), ">> removed board |%s|\r\n",
+		    n);
 		break;
 	case BOARDERR_NOTEMPTY:
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> board |%s| is not empty\r\n", n);
+		    ">> board |%s| is not empty\r\n", n);
 		break;
 	case BOARDERR_NOTFOUND:
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> board |%s| not found\r\n", n);
+		    ">> board |%s| not found\r\n", n);
 		break;
 	default:
 		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> board |%s| unknown error %d\r\n", n, rc);
+		    ">> board |%s| unknown error %d\r\n", n, rc);
 	}
 
 	sendtoplayer(pplayer, sendbuf);
