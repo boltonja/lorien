@@ -73,8 +73,8 @@ MAIN= lorien.o
 OBJ= ban.o chat.o commands.o db.o files.o help.o journal.o log.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
 
 # Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
-LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto
-CFLAGS?=
+LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto -liconv
+CFLAGS?=-g -ggdb -fstack-protector-all
 
 CC?=gcc
 DEBUG=-g -ggdb

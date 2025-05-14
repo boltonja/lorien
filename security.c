@@ -65,11 +65,11 @@
 parse_error
 haven_shutdown(struct splayer *pplayer)
 {
-	snprintf(sendbuf, sizeof(sendbuf),
+	snprintf(sendbuf, sendbufsz,
 	    "Shutting down to shut down command by %s from %s.\n",
 	    pplayer->name, pplayer->host);
 	log_msg(sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf),
+	snprintf(sendbuf, sendbufsz,
 	    ">> Shutting down to shut down command by %s from %s.\r\n",
 	    pplayer->name, pplayer->host);
 	sendall(sendbuf, ALL, 0);
@@ -98,7 +98,7 @@ generate_sha512_salt(char *buf, size_t sz)
 	 */
 	assert(sz >= 21);
 
-        rc = getentropy((void *)entropy, sizeof(entropy));
+	rc = getentropy((void *)entropy, sizeof(entropy));
 	if (rc != 0)
 		return -1;
 
@@ -107,7 +107,7 @@ generate_sha512_salt(char *buf, size_t sz)
 		return -1;
 
 	rc = EVP_EncodeBlock((void *)(buf + l), (void *)entropy,
-				 sizeof(entropy));
+	    sizeof(entropy));
 
 	if (rc != (sizeof(entropy) * 4 / 3))
 		return -1;
@@ -124,7 +124,6 @@ static size_t hashsz = 0;
 int
 init_security(void)
 {
-
 	if (!hashfunc) {
 		OpenSSL_add_all_digests();
 		hashfunc = EVP_get_digestbyname("SHA512");
@@ -233,7 +232,7 @@ hashpass(char *out, size_t sz, const char *key, const char *salt)
 	if (sz <= len + 20)
 		goto out;
 
-	out[len + 20] = (char) 0;
+	out[len + 20] = (char)0;
 
 	rc = 0;
 

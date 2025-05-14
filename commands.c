@@ -137,15 +137,15 @@ setmain(struct splayer *pplayer, char *buf)
 		return PARSERR_SUPPRESS;
 	} else {
 		if (findchannel(buf)) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> channel %s already exists.\r\n", buf);
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
 		strncpy(channels->name, buf, MAX_CHAN);
 		channels->name[MAX_CHAN - 1] = 0;
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> main channel now \"%s\"\r\n", channels->name);
+		snprintf(sendbuf, sendbufsz, ">> main channel now \"%s\"\r\n",
+		    channels->name);
 		sendall(sendbuf, ARRIVAL, pplayer);
 		return PARSE_OK;
 	}
@@ -187,19 +187,19 @@ modPlayer(struct splayer *pplayer, char *buf)
 		return PARSERR_NUMARGS;
 	}
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Modifying %s for %s to %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Modifying %s for %s to %s\r\n",
 	    element, name, value);
 	sendtoplayer(pplayer, sendbuf);
 
 	rc = ldb_player_get(&lorien_db, name, strlen(name), &prefs);
 
 	if (rc == MDB_NOTFOUND) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Player %s is not registered.\r\n", name);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	} else if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Error %d: Player database unreadable.\r\n", rc);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
@@ -212,9 +212,8 @@ modPlayer(struct splayer *pplayer, char *buf)
 
 	int curlev = tplayer ? tplayer->seclevel : prefs.seclevel;
 	if (pplayer->seclevel <= curlev) {
-		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> %s has at least as much authority as you.\r\n",
-			 name);
+		snprintf(sendbuf, sendbufsz,
+		    ">> %s has at least as much authority as you.\r\n", name);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
@@ -225,16 +224,15 @@ modPlayer(struct splayer *pplayer, char *buf)
 	case 's': /* seclevel */
 		newlev = atoi(value);
 		if (pplayer->seclevel < newlev) {
-			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> Your level %d < new level %d.\r\n",
-				 pplayer->seclevel, newlev);
+			snprintf(sendbuf, sendbufsz,
+			    ">> Your level %d < new level %d.\r\n",
+			    pplayer->seclevel, newlev);
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
 		if ((newlev < 0) || (newlev >= NUMLVL)) {
-			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> %d is not a valid security level..\n",
-				 newlev);
+			snprintf(sendbuf, sendbufsz,
+			    ">> %d is not a valid security level..\n", newlev);
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
@@ -243,8 +241,7 @@ modPlayer(struct splayer *pplayer, char *buf)
 	case 'p': /* password */;
 		rc = mkpasswd(prefs.password, sizeof(prefs.password), value);
 		if (rc != 0) {
-			sendtoplayer(pplayer,
-				     ">> Can't make password\r\n");
+			sendtoplayer(pplayer, ">> Can't make password\r\n");
 			return PARSERR_SUPPRESS;
 		}
 	default:
@@ -254,18 +251,18 @@ modPlayer(struct splayer *pplayer, char *buf)
 	rc = ldb_player_put(&lorien_db, &prefs, false);
 
 	if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> Error %d: Can't write record for %s\n", rc, name);
+		snprintf(sendbuf, sendbufsz,
+		    ">> Error %d: Can't write record for %s\n", rc, name);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
 
 	/* if logged in, make in-core match */
 	if (tplayer) {
-		switch(*element) {
+		switch (*element) {
 		case 'p':
 			strlcpy(tplayer->password, prefs.password,
-				sizeof(tplayer->password));
+			    sizeof(tplayer->password));
 			break;
 		case 's':
 			tplayer->seclevel = prefs.seclevel;
@@ -275,8 +272,8 @@ modPlayer(struct splayer *pplayer, char *buf)
 		}
 	}
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> %s for %s set to %s\r\n",
-	    element, name, value);
+	snprintf(sendbuf, sendbufsz, ">> %s for %s set to %s\r\n", element,
+	    name, value);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -286,9 +283,9 @@ messages(struct splayer *pplayer)
 {
 	PLAYER_XOR(MSG, pplayer);
 	if (PLAYER_HAS(MSG, pplayer))
-		snprintf(sendbuf, sizeof(sendbuf), MESSAGE_MSG);
+		snprintf(sendbuf, sendbufsz, MESSAGE_MSG);
 	else
-		snprintf(sendbuf, sizeof(sendbuf), NOMESSAGE_MSG);
+		snprintf(sendbuf, sendbufsz, NOMESSAGE_MSG);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -305,7 +302,7 @@ setmax(struct splayer *pplayer, char *buf)
 		MAXCONN = settablesize(line_number);
 	else
 		MAXCONN = gettablesize();
-	snprintf(sendbuf, sizeof(sendbuf), ">> fd limit now %lu.\r\n", MAXCONN);
+	snprintf(sendbuf, sendbufsz, ">> fd limit now %lu.\r\n", MAXCONN);
 	rc = PARSE_OK;
 
 	sendtoplayer(pplayer, sendbuf);
@@ -322,7 +319,7 @@ enablePassword(struct splayer *pplayer, char *buf)
 
 	char *pword = strchr(buf, '=');
 	if (pword == (char *)0) {
-		snprintf(sendbuf, sizeof(sendbuf), IVCMD_SYN);
+		snprintf(sendbuf, sendbufsz, IVCMD_SYN);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
@@ -349,15 +346,14 @@ enablePassword(struct splayer *pplayer, char *buf)
 
 	rc = mkpasswd(tplayer->password, sizeof(tplayer->password), pword);
 	if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> Cannot hash new password\r\n");
+		snprintf(sendbuf, sendbufsz, ">> Cannot hash new password\r\n");
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
 
 	rc = ldb_player_put(&lorien_db, tplayer, true); /* no overwrite */
 	if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Error %d: cannot create new player\r\n", rc);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
@@ -370,7 +366,6 @@ enablePassword(struct splayer *pplayer, char *buf)
 	return PARSE_OK;
 }
 
-
 parse_error
 bulletin_read(struct splayer *pplayer, char *buf)
 {
@@ -381,7 +376,7 @@ parse_error
 bulletin_post(struct splayer *pplayer, char *buf)
 {
 	if (!(pplayer->flags & CANBOARD)) {
-		snprintf(sendbuf, sizeof(sendbuf), NO_PERM);
+		snprintf(sendbuf, sendbufsz, NO_PERM);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
@@ -399,7 +394,7 @@ changePlayer(struct splayer *pplayer, char *buf)
 
 	if (!PLAYER_HAS(VRFY, pplayer)) {
 		/* can't save update for an unregistered player */
-		snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
+		snprintf(sendbuf, sendbufsz, bad_comm_prompt);
 		goto out;
 	}
 
@@ -414,7 +409,7 @@ changePlayer(struct splayer *pplayer, char *buf)
 		rc = PARSERR_SUPPRESS;
 		strlcpy(sendbuf,
 		    ">> Usage: /Poldpass[=newpass], newpass optional\r\n",
-		    sizeof(sendbuf));
+		    sendbufsz);
 		goto out;
 	}
 
@@ -422,17 +417,17 @@ changePlayer(struct splayer *pplayer, char *buf)
 	/* If new pass specified, update hash, otherwise just save player */
 	if (newpass) {
 		rc = mkpasswd(cplayer.password, sizeof(cplayer.password),
-			      newpass);
+		    newpass);
 		if (rc != 0) {
 			strlcpy(sendbuf, ">> Can't hash new password\r\n",
-				sizeof(sendbuf));
+			    sendbufsz);
 			goto out;
 		}
 	}
 
 	rc = ldb_player_put(&lorien_db, &cplayer, false); /* overwrite */
 	if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    (newpass) ? ">> Error %d, cannot update player db" :
 				">> Error %d, password NOT changed",
 		    rc);
@@ -442,9 +437,9 @@ changePlayer(struct splayer *pplayer, char *buf)
 
 	if (newpass)
 		strlcpy(pplayer->password, cplayer.password,
-			sizeof(pplayer->password));
+		    sizeof(pplayer->password));
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Player record updated.\r\n");
+	snprintf(sendbuf, sendbufsz, ">> Player record updated.\r\n");
 
 out:
 	sendtoplayer(pplayer, sendbuf);
@@ -471,15 +466,14 @@ delete_player(struct splayer *pplayer, char *buf)
 
 	rc = ldb_player_delete(&lorien_db, tplayer);
 	if (rc != 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Error %d, can't delete player.\r\n", rc);
 		rc = PARSERR_SUPPRESS;
 		goto out;
 	}
 
 	PLAYER_CLR(VRFY, tplayer);
-	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> Player deleted from database.\r\n");
+	snprintf(sendbuf, sendbufsz, ">> Player deleted from database.\r\n");
 	rc = PARSE_OK;
 
 out:
@@ -510,7 +504,7 @@ set_name(struct splayer *pplayer, char *buf)
 
 	/* player not in db but password supplied */
 	if ((rc != 0) && buf2) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Name not found in database.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
@@ -518,7 +512,7 @@ set_name(struct splayer *pplayer, char *buf)
 
 	/* player in db but no password supplied */
 	if ((rc == 0) && !buf2) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> That name is reserved.  Please use another.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
@@ -526,19 +520,17 @@ set_name(struct splayer *pplayer, char *buf)
 
 	/* player in db and password supplied */
 	if ((rc == 0) && buf2) {
-
 		rc = ckpasswd(rplayer.password, buf2);
 
 		if (rc != 0) {
-			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> Invalid password.\r\n");
+			snprintf(sendbuf, sendbufsz,
+			    ">> Invalid password.\r\n");
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
 
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> Last login %s ago from %s\r\n", idlet(rplayer.cameon),
-		    rplayer.host);
+		snprintf(sendbuf, sendbufsz, ">> Last login %s ago from %s\r\n",
+		    idlet(rplayer.cameon), rplayer.host);
 		sendtoplayer(pplayer, sendbuf);
 
 		/* update last login info in db */
@@ -547,17 +539,18 @@ set_name(struct splayer *pplayer, char *buf)
 
 		rc = ldb_player_put(&lorien_db, &rplayer, false);
 		if (rc != 0) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> Error %d. Cannot update login time\r\n", rc);
 			sendtoplayer(pplayer, sendbuf);
 		}
 
 		strlcpy(pplayer->name, rplayer.name, sizeof(pplayer->name));
 		strlcpy(pplayer->password, rplayer.password,
-			sizeof(pplayer->password));
+		    sizeof(pplayer->password));
 		pplayer->seclevel = rplayer.seclevel;
 		pplayer->hilite = rplayer.hilite;
-		pplayer->privs =rplayer.privs; /* do we need to persist this? */
+		pplayer->privs =
+		    rplayer.privs; /* do we need to persist this? */
 		pplayer->wrap = rplayer.wrap;
 		pplayer->flags = rplayer.flags;
 		pplayer->pagelen = rplayer.pagelen; /* BUG: not implemented */
@@ -574,7 +567,7 @@ set_name(struct splayer *pplayer, char *buf)
 
 	if (newconn) {
 		/* let everyone else know who's here. */
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> New arrival on line %d from %s.\r\n",
 		    player_getline(pplayer), pplayer->host);
 		sendall(sendbuf, ARRIVAL, 0);
@@ -593,10 +586,10 @@ pose_it(struct splayer *pplayer, char *buf)
 	int line = player_getline(pplayer);
 
 	if (*buf == ',' || *buf == '\'')
-		snprintf(sendbuf, sizeof(sendbuf), "(%d) %s%s\r\n", line,
+		snprintf(sendbuf, sendbufsz, "(%d) %s%s\r\n", line,
 		    pplayer->name, buf);
 	else
-		snprintf(sendbuf, sizeof(sendbuf), "(%d) %s %s\r\n", line,
+		snprintf(sendbuf, sendbufsz, "(%d) %s %s\r\n", line,
 		    pplayer->name, buf);
 	sendall(sendbuf, pplayer->chnl, 0);
 }
@@ -621,7 +614,7 @@ stagepose(struct splayer *pplayer, char *buf, speechmode mode)
 
 		who = lookup(linenum);
 		if (who == (struct splayer *)0) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> error:  Player %d does not exist.\r\n",
 			    linenum);
 			sendtoplayer(pplayer, sendbuf);
@@ -650,8 +643,8 @@ stagepose(struct splayer *pplayer, char *buf, speechmode mode)
 						fmtstring = fmt_yellposespace;
 						break;
 					}
-				snprintf(sendbuf, sizeof(sendbuf), fmtstring,
-				    sender, who->name, pplayer->name, buf);
+				snprintf(sendbuf, sendbufsz, fmtstring, sender,
+				    who->name, pplayer->name, buf);
 				if (pplayer->seclevel > JOEUSER)
 					sendall(sendbuf, pplayer->chnl, 0);
 				else
@@ -661,8 +654,8 @@ stagepose(struct splayer *pplayer, char *buf, speechmode mode)
 				fmtstring = (mode == SPEECH_YELL) ?
 				    fmt_yellstage :
 				    fmt_stage;
-				snprintf(sendbuf, sizeof(sendbuf), fmtstring,
-				    sender, pplayer->name, who->name, buf);
+				snprintf(sendbuf, sendbufsz, fmtstring, sender,
+				    pplayer->name, who->name, buf);
 				if (pplayer->seclevel > JOEUSER) {
 					if (mode == SPEECH_YELL) {
 						who = players->next;
@@ -680,7 +673,7 @@ stagepose(struct splayer *pplayer, char *buf, speechmode mode)
 			}
 		}
 	} else {
-		snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
+		snprintf(sendbuf, sendbufsz, bad_comm_prompt);
 		sendtoplayer(pplayer, sendbuf);
 	}
 
@@ -701,7 +694,7 @@ force(struct splayer *pplayer, char *buf)
 
 		who = lookup(linenum);
 		if (who == (struct splayer *)0) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> error:  Player %d does not exist. \r\n",
 			    linenum);
 			sendtoplayer(pplayer, sendbuf);
@@ -713,18 +706,18 @@ force(struct splayer *pplayer, char *buf)
 				processinput(who);
 				rc = PARSE_OK;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> %s has at least as much authority as you.\r\n",
 				    who->name);
 				sendtoplayer(pplayer, sendbuf);
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> %s just tried to force you...\r\n",
 				    pplayer->name);
 				sendtoplayer(who, sendbuf);
 			}
 		}
 	} else {
-		snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
+		snprintf(sendbuf, sendbufsz, bad_comm_prompt);
 		sendtoplayer(pplayer, sendbuf);
 	};
 	return rc;
@@ -741,21 +734,21 @@ gag_Player(struct splayer *pplayer, char *buf)
 	who = lookup(line_number);
 
 	if (!who) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist!\r\n", line_number);
 	} else if ((line_number >= 1) && (line_number < MAXCONN)) {
 		rc = PARSE_OK;
 		if (FD_ISSET(line_number, &pplayer->gags)) {
 			FD_CLR(line_number, &pplayer->gags);
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> Player %d ungagged.\r\n", line_number);
 		} else {
 			FD_SET(line_number, &pplayer->gags);
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> Player %d gagged.\r\n", line_number);
+			snprintf(sendbuf, sendbufsz, ">> Player %d gagged.\r\n",
+			    line_number);
 		}
 	} else {
-		snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
+		snprintf(sendbuf, sendbufsz, bad_comm_prompt);
 	};
 
 	sendtoplayer(pplayer, sendbuf);
@@ -771,7 +764,7 @@ change_onfrom(struct splayer *pplayer, char *buf)
 	else {
 		strncpy(pplayer->onfrom, buf, MAX_NAME - 1);
 		pplayer->onfrom[MAX_NAME - 1] = (char)0x0;
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Host information changed to %s\r\n", pplayer->onfrom);
 		sendtoplayer(pplayer, sendbuf);
 	}
@@ -799,40 +792,40 @@ finger(struct splayer *pplayer, char *instring)
 	who = lookup(line);
 
 	if (!who) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist!\r\n", line);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Name: %s\r\n", who->name);
+	snprintf(sendbuf, sendbufsz, ">> Name: %s\r\n", who->name);
 	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf), ">> Channel: %s %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Channel: %s %s\r\n",
 	    who->chnl ? (who->chnl->name) : "***none***",
 	    who->chnl ? ((who->chnl->secure) ? "(Secured)" : "") : "");
 	sendtoplayer(pplayer, sendbuf);
 #ifdef ONFROM_ANY
-	snprintf(sendbuf, sizeof(sendbuf), ">> Doing: %s\r\n", who->onfrom);
+	snprintf(sendbuf, sendbufsz, ">> Doing: %s\r\n", who->onfrom);
 	sendtoplayer(pplayer, sendbuf);
 #endif
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> On From: %s (%s:%d)\r\n",
-	    who->host, who->numhost, who->port);
+	snprintf(sendbuf, sendbufsz, ">> On From: %s (%s:%d)\r\n", who->host,
+	    who->numhost, who->port);
 	sendtoplayer(pplayer, sendbuf);
 
 	if ((pplayer->seclevel > BABYCO) || (pplayer == who)) {
-		snprintf(sendbuf, sizeof(sendbuf), ">> Gags: ");
+		snprintf(sendbuf, sendbufsz, ">> Gags: ");
 		for (currfd = 1, gagcount = 0; currfd <= MAXCONN; currfd++) {
 			if (FD_ISSET(currfd, &who->gags)) {
 				gagcount++;
 				snprintf(maskbuf, sizeof(maskbuf), "%d ",
 				    currfd);
 				strncat(sendbuf, maskbuf,
-				    (sizeof(sendbuf) - 1) - strlen(sendbuf));
+				    (sendbufsz - 1) - strlen(sendbuf));
 				if (gagcount && !(gagcount % 8)) {
 					strcat(maskbuf, "\r\n");
 					sendtoplayer(pplayer, sendbuf);
-					snprintf(sendbuf, sizeof(sendbuf),
+					snprintf(sendbuf, sendbufsz,
 					    ">>       ");
 				}
 			}
@@ -846,33 +839,33 @@ finger(struct splayer *pplayer, char *instring)
 		}
 	}
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Toggles enabled: %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Toggles enabled: %s\r\n",
 	    mask2string32(who->flags, PLAYER_MAX_FLAG_BIT, maskbuf,
 		sizeof(maskbuf), player_flags_names, ", "));
 	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf), ">> Toggles disabled: %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Toggles disabled: %s\r\n",
 	    mask2string32(~(who->flags), PLAYER_MAX_FLAG_BIT, maskbuf,
 		sizeof(maskbuf), player_flags_names, ", "));
 	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf), ">> Hilites: %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Hilites: %s\r\n",
 	    (who->hilite) ? mask2string(who->hilite, maskbuf, hi_types, ", ") :
 			    "None");
 	sendtoplayer(pplayer, sendbuf);
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Idle: %s\tWrap width: %d\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Idle: %s\tWrap width: %d\r\n",
 	    idlet(who->idle), who->wrap);
 	sendtoplayer(pplayer, sendbuf);
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Privileges granted: %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Privileges granted: %s\r\n",
 	    mask2string32(who->privs, CAN_MAX_FLAG_BIT, maskbuf,
 		sizeof(maskbuf), player_privs_names, ", "));
 	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf), ">> Privileges revoked: %s\r\n",
+	snprintf(sendbuf, sendbufsz, ">> Privileges revoked: %s\r\n",
 	    mask2string32(~(who->privs), CAN_MAX_FLAG_BIT, maskbuf,
 		sizeof(maskbuf), player_privs_names, ", "));
 	sendtoplayer(pplayer, sendbuf);
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> End of info\r\n");
+	snprintf(sendbuf, sendbufsz, ">> End of info\r\n");
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -911,7 +904,7 @@ change_channel(struct splayer *pplayer, char *buf)
 		who = lookup(linenumber);
 
 		if (!who) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> error:  Player %d does not exist!\r\n",
 			    linenumber);
 			sendtoplayer(pplayer, sendbuf);
@@ -919,11 +912,11 @@ change_channel(struct splayer *pplayer, char *buf)
 		}
 
 		if (who->seclevel >= pplayer->seclevel) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %s has at least as much authority as you!\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %s just tried to change your channel.\r\n",
 			    pplayer->name);
 			sendtoplayer(who, sendbuf);
@@ -933,7 +926,7 @@ change_channel(struct splayer *pplayer, char *buf)
 		strcpy(who->pbuf, "/c");
 		strcat(who->pbuf, buf);
 		processinput(who);
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> (%d) %s placed on channel %s.\r\n", player_getline(who),
 		    who->name, who->chnl->name);
 		sendtoplayer(pplayer, sendbuf);
@@ -949,7 +942,7 @@ change_channel(struct splayer *pplayer, char *buf)
 		if (!strlen(buf)) {
 			newc = channels;
 
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %-13s %-10s %-6s %-6s\r\n", "Channel",
 			    "# Users", "Secure", "Persists");
 			sendtoplayer(pplayer, sendbuf);
@@ -957,7 +950,7 @@ change_channel(struct splayer *pplayer, char *buf)
 			    ">> -------------------------------\r\n");
 
 			while (newc) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> %-13s %-10d %-6s %-6s\r\n", newc->name,
 				    newc->count, (newc->secure) ? "Yes" : "No",
 				    (newc->persistent) ? "Yes" : "No");
@@ -1002,17 +995,17 @@ change_channel(struct splayer *pplayer, char *buf)
 
 		newc->count++;
 
-		snprintf(sendbuf, sizeof(sendbuf), ">> (%d) %s has joined.\r\n",
+		snprintf(sendbuf, sendbufsz, ">> (%d) %s has joined.\r\n",
 		    sender, pplayer->name);
 		sendall(sendbuf, newc, 0);
 
 		pplayer->chnl = newc;
 
-		snprintf(sendbuf, sizeof(sendbuf), ">> Channel changed.\r\n");
+		snprintf(sendbuf, sendbufsz, ">> Channel changed.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> (%d) %s has wandered off.\r\n", sender, pplayer->name);
+		snprintf(sendbuf, sendbufsz, ">> (%d) %s has wandered off.\r\n",
+		    sender, pplayer->name);
 		if (oldc)
 			sendall(sendbuf, oldc, 0);
 	}
@@ -1045,9 +1038,9 @@ whisper(struct splayer *pplayer, char *buf)
 		linenum = atoi(buf);
 		who = lookup(linenum);
 		if (!who) {
-			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> error:  Player %d does not exist.\r\n",
-				 linenum);
+			snprintf(sendbuf, sendbufsz,
+			    ">> error:  Player %d does not exist.\r\n",
+			    linenum);
 			sendtoplayer(pplayer, sendbuf);
 			return PARSERR_SUPPRESS;
 		}
@@ -1060,7 +1053,7 @@ whisper(struct splayer *pplayer, char *buf)
 	} else {
 		who = pplayer->dotspeeddial;
 		if (!who) {
-			snprintf(sendbuf, sizeof(sendbuf), bad_comm_prompt);
+			snprintf(sendbuf, sendbufsz, bad_comm_prompt);
 			sendtoplayer(pplayer, sendbuf);
 		}
 		linenum = player_getline(who);
@@ -1080,23 +1073,21 @@ whisper(struct splayer *pplayer, char *buf)
 	} else
 		fmtstring = formatwhisper;
 
-	snprintf(sendbuf, sizeof(sendbuf), fmtstring,
-		 (who->hilite) ? expand_hilite(who->hilite, hbuf) : "",
-		 sender, pplayer->name, buf,
-		 (who->hilite) ? expand_hilite(0L, hbuf2) : "",
-		 PLAYER_HAS(BEEPS, who) ? BEEPS_NEWLINE : NOBEEPS_NEWLINE);
+	snprintf(sendbuf, sendbufsz, fmtstring,
+	    (who->hilite) ? expand_hilite(who->hilite, hbuf) : "", sender,
+	    pplayer->name, buf, (who->hilite) ? expand_hilite(0L, hbuf2) : "",
+	    PLAYER_HAS(BEEPS, who) ? BEEPS_NEWLINE : NOBEEPS_NEWLINE);
 	if (fmtstring == formatwhisper)
 		snprintf(buf2, sizeof(buf2), formatecho, who->name, buf);
 	else
 		snprintf(buf2, sizeof(buf2), formatposeecho, who->name,
-			 pplayer->name, buf);
+		    pplayer->name, buf);
 
 	if (pplayer->seclevel > JOEUSER && !isgagged(who, pplayer))
 		sendtoplayer(who, sendbuf);
 
 	if (!PLAYER_HAS(ECHO, pplayer)) {
-		sendtoplayer(pplayer,
-			     ">> /p sent.\r\n");
+		sendtoplayer(pplayer, ">> /p sent.\r\n");
 	} else {
 		sendtoplayer(pplayer, buf2);
 	}
@@ -1114,7 +1105,7 @@ change_privs(struct splayer *pplayer, char *buf)
 	buf = (char *)skipspace(buf);
 
 	if (!isdigit(*buf)) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Bad player number in command.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
@@ -1125,18 +1116,18 @@ change_privs(struct splayer *pplayer, char *buf)
 	who = lookup(line);
 
 	if (!who) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist!\r\n", line);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
 
 	if (who->seclevel >= pplayer->seclevel) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> %s has at least as much authority as you.\r\n",
 		    who->name);
 		sendtoplayer(pplayer, sendbuf);
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> (%d) %s just tried to change your privileges.\r\n",
 		    sender, pplayer->name);
 		sendtoplayer(who, sendbuf);
@@ -1150,13 +1141,13 @@ change_privs(struct splayer *pplayer, char *buf)
 		switch (*buf) {
 		case 'Y':
 			if (who->privs & CANYELL) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to '\''yell.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANYELL;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now yell.\r\n", line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs |= CANYELL;
@@ -1164,13 +1155,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'W':
 			if (who->privs & CANWHISPER) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to whisper.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANWHISPER;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now whisper.\r\n", line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs |= CANWHISPER;
@@ -1178,13 +1169,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'N':
 			if (who->privs & CANNAME) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to set own name.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANNAME;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now set own name.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
@@ -1193,13 +1184,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'Q':
 			if (who->privs & CANQUIT) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to quit.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANQUIT;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now quit.\r\n", line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs |= CANQUIT;
@@ -1207,13 +1198,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'T':
 			if (who->privs & CANCHANNEL) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to change channels\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANCHANNEL;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now change channels.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
@@ -1222,13 +1213,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'C':
 			if (who->privs & CANCAPS) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to use capital letters.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANCAPS;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now use capital letters.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
@@ -1237,13 +1228,13 @@ change_privs(struct splayer *pplayer, char *buf)
 			break;
 		case 'B':
 			if (who->privs & CANBOARD) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d is not allowed to post bulletins.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
 				who->privs &= ~CANBOARD;
 			} else {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    ">> Player %d may now post bulletins.\r\n",
 				    line);
 				sendtoplayer(pplayer, sendbuf);
@@ -1271,7 +1262,7 @@ yell(struct splayer *pplayer, char *buf)
 	}
 
 	if (PLAYER_HAS(HUSH, pplayer)) {
-		snprintf(sendbuf, sizeof(sendbuf), YELL_MSG);
+		snprintf(sendbuf, sendbufsz, YELL_MSG);
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	};
@@ -1290,10 +1281,10 @@ yell(struct splayer *pplayer, char *buf)
 			else
 				fmtstring = formatposespace;
 
-			snprintf(sendbuf, sizeof(sendbuf), fmtstring,
-			    sender, pplayer->name, buf);
+			snprintf(sendbuf, sendbufsz, fmtstring, sender,
+			    pplayer->name, buf);
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf), "(*%d, %s*) %s\r\n",
+			snprintf(sendbuf, sendbufsz, "(*%d, %s*) %s\r\n",
 			    sender, pplayer->name, buf);
 		}
 		if ((pplayer->seclevel) > JOEUSER) {
@@ -1316,9 +1307,9 @@ echo(struct splayer *pplayer)
 {
 	PLAYER_XOR(ECHO, pplayer);
 	if (PLAYER_HAS(ECHO, pplayer)) {
-		snprintf(sendbuf, sizeof(sendbuf), ECHO_MSG);
+		snprintf(sendbuf, sendbufsz, ECHO_MSG);
 	} else
-		snprintf(sendbuf, sizeof(sendbuf), NOECHO_MSG);
+		snprintf(sendbuf, sendbufsz, NOECHO_MSG);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -1328,16 +1319,16 @@ hush(struct splayer *pplayer)
 {
 	/* if unhushed and screaming, can't scream no more. */
 	if (PLAYER_HAS(SCREAM, pplayer) && !PLAYER_HAS(HUSH, pplayer)) {
-		snprintf(sendbuf, sizeof(sendbuf), NOSCREAM_MSG);
+		snprintf(sendbuf, sendbufsz, NOSCREAM_MSG);
 		sendtoplayer(pplayer, sendbuf);
 		PLAYER_XOR(SCREAM, pplayer);
 	}
 
 	PLAYER_XOR(HUSH, pplayer);
 	if (PLAYER_HAS(HUSH, pplayer))
-		snprintf(sendbuf, sizeof(sendbuf), HUSH_MSG);
+		snprintf(sendbuf, sendbufsz, HUSH_MSG);
 	else
-		snprintf(sendbuf, sizeof(sendbuf), UNHUSH_MSG);
+		snprintf(sendbuf, sendbufsz, UNHUSH_MSG);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -1346,14 +1337,14 @@ parse_error
 scream(struct splayer *pplayer)
 {
 	if (PLAYER_HAS(HUSH, pplayer)) {
-		snprintf(sendbuf, sizeof(sendbuf), YELL_MSG);
+		snprintf(sendbuf, sendbufsz, YELL_MSG);
 		sendtoplayer(pplayer, sendbuf);
 	} else {
 		PLAYER_XOR(SCREAM, pplayer);
 		if (PLAYER_HAS(SCREAM, pplayer))
-			snprintf(sendbuf, sizeof(sendbuf), SCREAM_MSG);
+			snprintf(sendbuf, sendbufsz, SCREAM_MSG);
 		else
-			snprintf(sendbuf, sizeof(sendbuf), NOSCREAM_MSG);
+			snprintf(sendbuf, sendbufsz, NOSCREAM_MSG);
 		sendtoplayer(pplayer, sendbuf);
 	}
 	return PARSE_OK;
@@ -1370,25 +1361,25 @@ promote(struct splayer *pplayer, char *buf)
 
 	who = lookup(linenum);
 	if (who == (struct splayer *)0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist.\r\n", linenum);
 		sendtoplayer(pplayer, sendbuf);
 	} else {
 		if ((who->seclevel + 1) >= pplayer->seclevel) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %s's security level is too high.\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
 		} else {
 			who->seclevel++;
-			snprintf(sendbuf, sizeof(sendbuf),
-			    "%s(%d) promoted %s(%d)", pplayer->name,
-			    pplayer->seclevel, who->name, who->seclevel);
+			snprintf(sendbuf, sendbufsz, "%s(%d) promoted %s(%d)",
+			    pplayer->name, pplayer->seclevel, who->name,
+			    who->seclevel);
 			log_msg(sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> %s promoted.\r\n", who->name);
+			snprintf(sendbuf, sendbufsz, ">> %s promoted.\r\n",
+			    who->name);
 			sendtoplayer(pplayer, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> You have been promoted.\r\n");
 			sendtoplayer(who, sendbuf);
 		}
@@ -1407,21 +1398,21 @@ demote(struct splayer *pplayer, char *buf)
 
 	who = lookup(linenum);
 	if (who == (struct splayer *)0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist.\r\n", linenum);
 		sendtoplayer(pplayer, sendbuf);
 	} else {
 		if (who->seclevel < pplayer->seclevel) {
 			who->seclevel--;
-			snprintf(sendbuf, sizeof(sendbuf), ">> %s demoted.\r\n",
+			snprintf(sendbuf, sendbufsz, ">> %s demoted.\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> You don't have authority over %s!\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %s just tried to demote you!\r\n",
 			    pplayer->name);
 			sendtoplayer(who, sendbuf);
@@ -1441,30 +1432,30 @@ kill_player(struct splayer *pplayer, char *buf)
 
 	who = lookup(linenum);
 	if (who == (struct splayer *)0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> error:  Player %d does not exist.\r\n", linenum);
 		sendtoplayer(pplayer, sendbuf);
 	} else {
 		if (who->seclevel < pplayer->seclevel) {
-			snprintf(sendbuf, sizeof(sendbuf), DEAD_MSG);
+			snprintf(sendbuf, sendbufsz, DEAD_MSG);
 			sendtoplayer(who, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> %s(%d) killed.\r\n", who->name, linenum);
+			snprintf(sendbuf, sendbufsz, ">> %s(%d) killed.\r\n",
+			    who->name, linenum);
 			sendtoplayer(pplayer, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf), "%s killed %s.",
+			snprintf(sendbuf, sendbufsz, "%s killed %s.",
 			    pplayer->name, who->name);
 			log_msg(sendbuf);
 			removeplayer(who);
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> You don't have authority over %s!\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> %s just tried to kill you!\r\n", pplayer->name);
 			sendtoplayer(who, sendbuf);
-			snprintf(sendbuf, sizeof(sendbuf),
-			    "%s tried to kill %s.", pplayer->name, who->name);
+			snprintf(sendbuf, sendbufsz, "%s tried to kill %s.",
+			    pplayer->name, who->name);
 			log_msg(sendbuf);
 		}
 	}
@@ -1493,9 +1484,9 @@ broadcast(struct splayer *pplayer, char *buf)
 {
 	int sender = player_getline(pplayer);
 
-	snprintf(sendbuf, sizeof(sendbuf),
-	    ">> Broadcast message from (%d) %s : %s\r\n", sender,
-	    pplayer->name, buf);
+	snprintf(sendbuf, sendbufsz,
+	    ">> Broadcast message from (%d) %s : %s\r\n", sender, pplayer->name,
+	    buf);
 	sendall(sendbuf, ALL, 0);
 	return PARSE_OK;
 }
@@ -1512,30 +1503,30 @@ broadcast2(struct splayer *pplayer, char *buf)
 		line = 0;
 	if (!line) {
 		buf = (char *)skipspace(buf);
-		snprintf(sendbuf, sizeof(sendbuf), "%s\r\n", buf);
+		snprintf(sendbuf, sendbufsz, "%s\r\n", buf);
 		sendall(sendbuf, INFORMATIONAL, 0);
 
-		/* 	    snprintf(sendbuf, sizeof(sendbuf), ">> global info
+		/* 	    snprintf(sendbuf, sendbufsz, ">> global info
 		 * |%s| sent\r\n",buf); */
 		/* 	    sendtoplayer(pplayer,sendbuf); */
 		/* 	    log_msg(sendbuf); */
 	} else {
 		who = lookup(line);
 
-		/* 	    snprintf(sendbuf, sizeof(sendbuf), "private info
+		/* 	    snprintf(sendbuf, sendbufsz, "private info
 		 * |%s| targeted %d.\r\n", buf,line); */
 		/* 	    sendtoplayer(pplayer,sendbuf); */
 		/* 	    log_msg(sendbuf); */
 
 		buf = (char *)skipspace(skipdigits(buf));
-		snprintf(sendbuf, sizeof(sendbuf), "%s\r\n", buf);
+		snprintf(sendbuf, sendbufsz, "%s\r\n", buf);
 		if (who) {
 			sendtoplayer(who, sendbuf);
-			/* 		snprintf(sendbuf, sizeof(sendbuf),">>
+			/* 		snprintf(sendbuf, sendbufsz,">>
 			 * sent to %s.\r\n", who->name); */
 			/* 		sendtoplayer(pplayer,sendbuf); */
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> error:  Player %d does not exist.\r\n", line);
 			sendtoplayer(pplayer, sendbuf);
 			/*		log_msg(sendbuf); */
@@ -1549,11 +1540,11 @@ playerquit(struct splayer *pplayer, char *buf)
 {
 	if (pplayer->privs & CANQUIT) {
 #ifndef NO_LOG_CONNECT
-		snprintf(sendbuf, sizeof(sendbuf), "%s was on from %s",
-			 pplayer->name, pplayer->host);
+		snprintf(sendbuf, sendbufsz, "%s was on from %s", pplayer->name,
+		    pplayer->host);
 		log_msg(sendbuf);
 #endif
-		snprintf(sendbuf, sizeof(sendbuf), EXIT_MSG);
+		snprintf(sendbuf, sendbufsz, EXIT_MSG);
 		sendtoplayer(pplayer, sendbuf);
 		PLAYER_SET(LEAVING, pplayer); /* handleinput() will remove */
 	}
@@ -1571,7 +1562,7 @@ playerwrap(struct splayer *pplayer, char *buf)
 
 	if (cols) {
 		if (cols < 4) {
-			snprintf(sendbuf, sizeof(sendbuf), MINWRAP_MSG, 4);
+			snprintf(sendbuf, sendbufsz, MINWRAP_MSG, 4);
 			sendtoplayer(pplayer, sendbuf);
 		} else {
 			pplayer->wrap = cols;
@@ -1583,7 +1574,7 @@ playerwrap(struct splayer *pplayer, char *buf)
 	if (PLAYER_HAS(WRAP, pplayer)) {
 		if (!pplayer->wrap)
 			pplayer->wrap = 80; /* default to 80 */
-		snprintf(sendbuf, sizeof(sendbuf), WRAP_MSG, pplayer->wrap);
+		snprintf(sendbuf, sendbufsz, WRAP_MSG, pplayer->wrap);
 		sendtoplayer(pplayer, sendbuf);
 	} else
 		sendtoplayer(pplayer, NO_WRAP_MSG);
@@ -1596,11 +1587,9 @@ info_toggle(struct splayer *pplayer)
 {
 	PLAYER_XOR(INFO, pplayer);
 	if (PLAYER_HAS(INFO, pplayer))
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> /i messages enabled.\r\n");
+		snprintf(sendbuf, sendbufsz, ">> /i messages enabled.\r\n");
 	else
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> /i messages suppressed.\r\n");
+		snprintf(sendbuf, sendbufsz, ">> /i messages suppressed.\r\n");
 
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
@@ -1612,9 +1601,9 @@ level_toggle(struct splayer *pplayer)
 	PLAYER_XOR(SHOW, pplayer);
 
 	if (!PLAYER_HAS(SHOW, pplayer))
-		snprintf(sendbuf, sizeof(sendbuf), NO_LEVEL_MSG);
+		snprintf(sendbuf, sendbufsz, NO_LEVEL_MSG);
 	else
-		snprintf(sendbuf, sizeof(sendbuf), LEVEL_MSG);
+		snprintf(sendbuf, sendbufsz, LEVEL_MSG);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -1633,12 +1622,12 @@ secure_channel(struct splayer *pplayer, char *buf)
 		sendtoplayer(pplayer, NO_SECURE_PERSIST);
 	} else {
 		if (pplayer->chnl->secure) {
-			snprintf(sendbuf, sizeof(sendbuf), UNSECURE_MSG,
-			    sender, pplayer->name);
+			snprintf(sendbuf, sendbufsz, UNSECURE_MSG, sender,
+			    pplayer->name);
 			sendall(sendbuf, pplayer->chnl, 0);
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf), SECURE_MSG,
-			    sender, pplayer->name);
+			snprintf(sendbuf, sendbufsz, SECURE_MSG, sender,
+			    pplayer->name);
 			sendall(sendbuf, pplayer->chnl, 0);
 		}
 		pplayer->chnl->secure = !pplayer->chnl->secure;
@@ -1650,13 +1639,13 @@ parse_error
 add_ban(struct splayer *pplayer, char *buf)
 {
 	buf = (char *)skipspace(buf);
-	if (!ban_add(buf, pplayer->name, time((time_t *) NULL), true)) {
-		snprintf(sendbuf, sizeof(sendbuf),
-			 ">> cannot add banlist entry.\r\n");
+	if (!ban_add(buf, pplayer->name, time((time_t *)NULL), true)) {
+		snprintf(sendbuf, sendbufsz,
+		    ">> cannot add banlist entry.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 		return PARSERR_SUPPRESS;
 	}
-	snprintf(sendbuf, sizeof(sendbuf), ">> %s added to banlist.\r\n", buf);
+	snprintf(sendbuf, sendbufsz, ">> %s added to banlist.\r\n", buf);
 	sendall(sendbuf, ALL, pplayer);
 	return PARSE_OK;
 }
@@ -1666,9 +1655,9 @@ beeps(struct splayer *pplayer)
 {
 	PLAYER_XOR(BEEPS, pplayer);
 	if (PLAYER_HAS(BEEPS, pplayer))
-		snprintf(sendbuf, sizeof(sendbuf), BEEPS_MSG);
+		snprintf(sendbuf, sendbufsz, BEEPS_MSG);
 	else
-		snprintf(sendbuf, sizeof(sendbuf), NOBEEPS_MSG);
+		snprintf(sendbuf, sendbufsz, NOBEEPS_MSG);
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -1677,13 +1666,13 @@ parse_error
 hilites(struct splayer *pplayer, char *buf)
 {
 	if (construct_mask(buf, &pplayer->hilite) < 0) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Error parsing hilite string.\r\n");
 		sendtoplayer(pplayer, sendbuf);
 	} else {
 		char tmpstr[BUFSIZE];
 		memset(tmpstr, 0, BUFSIZE);
-		snprintf(sendbuf, sizeof(sendbuf), HIGHLIGHT_MSG,
+		snprintf(sendbuf, sendbufsz, HIGHLIGHT_MSG,
 		    mask2string(pplayer->hilite, tmpstr, hi_types, ","));
 		sendtoplayer(pplayer, sendbuf);
 	};
@@ -1695,8 +1684,8 @@ delete_ban(struct splayer *pplayer, char *buf)
 {
 	buf = (char *)skipspace(buf);
 	if (ban_remove(buf)) {
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %s removed from banlist.\r\n", buf);
+		snprintf(sendbuf, sendbufsz, ">> %s removed from banlist.\r\n",
+		    buf);
 		sendall(sendbuf, ALL, pplayer);
 	} else
 		sendtoplayer(pplayer, BAN_NOTFOUND);
@@ -1706,11 +1695,11 @@ delete_ban(struct splayer *pplayer, char *buf)
 parse_error
 format_uptime(struct splayer *pplayer)
 {
-	snprintf(sendbuf, sizeof(sendbuf),
+	snprintf(sendbuf, sendbufsz,
 	    ">> Lorien %s has been running for %s.\r\n", VERSION,
 	    timelet(lorien_boot_time, 40000));
 	sendtoplayer(pplayer, sendbuf);
-	snprintf(sendbuf, sizeof(sendbuf),
+	snprintf(sendbuf, sendbufsz,
 	    ">> %d of a possible %lu lines are in use.\r\n", numconnected(),
 	    MAXCONN - 4);
 	sendtoplayer(pplayer, sendbuf);
@@ -1720,7 +1709,7 @@ format_uptime(struct splayer *pplayer)
 parse_error
 add_channel(struct splayer *pplayer, char *buf)
 {
-	snprintf(sendbuf, sizeof(sendbuf), ">> Not implemented.\r\n");
+	snprintf(sendbuf, sendbufsz, ">> Not implemented.\r\n");
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
 }
@@ -1730,7 +1719,7 @@ prelogon(struct splayer *pplayer, char *buf)
 {
 	if (pplayer->spamming) {
 		if (!strcmp(buf, ".")) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    "250 2.0.0 ZZZZZZZZ Message logged, you criminal, now Go Away\r\n");
 			sendtoplayer(pplayer, sendbuf);
 			pplayer->spamming = 0;
@@ -1746,25 +1735,25 @@ prelogon(struct splayer *pplayer, char *buf)
 			switch (*(buf)) {
 			case 'E':
 			case 'H':
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    "250 rootaction.net Hello spam [0.0.0.0], logging your every move\r\n");
 				sendtoplayer(pplayer, sendbuf);
 				return;
 				break;
 			case 'M':
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    "250 2.1.0 spammer@nowhere... Go Away\r\n");
 				sendtoplayer(pplayer, sendbuf);
 				return;
 				break;
 			case 'R':
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    "250 2.1.5 spammer@nowhere... Go Away\r\n");
 				sendtoplayer(pplayer, sendbuf);
 				return;
 				break;
 			case 'D':
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    "354 Enter spam, end with %c.%c on a line by itself\r\n",
 				    34, 34);
 				pplayer->spamming = 1;
@@ -1781,7 +1770,7 @@ prelogon(struct splayer *pplayer, char *buf)
 			};
 
 			if (!(pplayer->privs & CANPLAY)) {
-				snprintf(sendbuf, sizeof(sendbuf),
+				snprintf(sendbuf, sendbufsz,
 				    "220 You must choose a name, use .n YOURNAME to set your name.\r\n220 Type .? for help.\r\n");
 				sendtoplayer(pplayer, sendbuf);
 			}
@@ -1789,6 +1778,7 @@ prelogon(struct splayer *pplayer, char *buf)
 	}
 }
 
+// clang-format off
 struct command commands[] = {
 	CMD_DECLS(CMD_ADDCHANNEL, 0, 2, COSYSOP, add_channel),
 	CMD_DECLS(CMD_ADDPLAYER, 0, 2, SUPREME, enablePassword),
@@ -1865,6 +1855,7 @@ struct command commands[] = {
 	CMD_DECL(CMD_YELL, 0, 2, yell),
 	{ 0, 0, 0, 0, NULL, NULL }
 };
+// clang-format on
 
 static int default_parser_entries =
     0; /* the number of entries in default_parse_table */
@@ -1936,11 +1927,11 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 	}
 	cp = skipspace(cp);
 	parserfile = fopen(cp, "r");
-	snprintf(sendbuf, sizeof(sendbuf), ">> file %s, \r\n", cp);
+	snprintf(sendbuf, sendbufsz, ">> file %s, \r\n", cp);
 
 	if (!parserfile) {
 		if (pplayer) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> can't open parser file |%s|\r\n", cp);
 			sendtoplayer(pplayer, sendbuf);
 		}
@@ -1964,8 +1955,8 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		/* copy the key that will be used for command text */
 		memset(key, 0, sizeof(key));
 		for (tp = &key[0];
-		     *cp && *cp != ' ' && tp - &key[0] < sizeof(key);
-		     *tp++ = *cp++) /* EMPTY */
+		    *cp && *cp != ' ' && tp - &key[0] < sizeof(key);
+		    *tp++ = *cp++) /* EMPTY */
 			;
 
 		/* is there a corresponding command name supplied?
@@ -1975,11 +1966,11 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		    *(cp = skipspace(cp))) {
 			memset(command, 0, sizeof(command));
 			for (tp = &command[0]; *cp && *cp != ' ' &&
-			     tp - &command[0] < sizeof(command);
-			     *tp++ = *cp++) /* EMPTY */
+			    tp - &command[0] < sizeof(command);
+			    *tp++ = *cp++) /* EMPTY */
 				;
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> invalid parser command %s\r\n", buf);
 			sendtoplayer(pplayer, sendbuf);
 			parser_collapse_dyncontext(newctxp);
@@ -1993,7 +1984,7 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 				break; /* found it */
 		}
 		if (!commp->func) { /* invalid command name */
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> unknown command %s\r\n", command);
 			sendtoplayer(pplayer, sendbuf);
 			parser_collapse_dyncontext(newctxp);
@@ -2003,7 +1994,7 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 
 		keyp = malloc(sizeof(struct parse_key));
 		if (!keyp) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> can't alloc new parse_key for %s,%s \r\n", key,
 			    command);
 			sendtoplayer(pplayer, sendbuf);
@@ -2015,7 +2006,7 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		strcpy(keyp->token, key);
 		keyp->cmd = commp->cmd;
 		if (!parser_add_to_context(newctxp, keyp)) {
-			snprintf(sendbuf, sizeof(sendbuf),
+			snprintf(sendbuf, sendbufsz,
 			    ">> can't add new context entry for parse_key %s,%s \r\n",
 			    key, command);
 			sendtoplayer(pplayer, sendbuf);
@@ -2040,12 +2031,10 @@ install_parser_from_file(struct splayer *pplayer, char *filename)
 		}
 		main_parser_context = newctxp;
 
-		snprintf(sendbuf + strlen(sendbuf),
-		    sizeof(sendbuf) - strlen(sendbuf),
+		snprintf(sendbuf + strlen(sendbuf), sendbufsz - strlen(sendbuf),
 		    "installed %lu parse keys.\r\n", newctxp->numentries);
 	} else
-		snprintf(sendbuf + strlen(sendbuf),
-		    sizeof(sendbuf) - strlen(sendbuf),
+		snprintf(sendbuf + strlen(sendbuf), sendbufsz - strlen(sendbuf),
 		    "contains no valid parse keys\n");
 
 	sendtoplayer(pplayer, sendbuf);

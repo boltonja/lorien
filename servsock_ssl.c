@@ -32,6 +32,8 @@
  */
 
 #include <assert.h>
+#include <err.h>
+#include <unistd.h>
 
 #include "ban.h"
 #include "lorien.h"
@@ -48,6 +50,12 @@
 #define INADDR_NONE (int)-1
 #endif
 
+static void
+alarmhandler(int s)
+{
+	return;
+}
+
 struct servsock_handle *
 getsock_ssl(char *address, int port, bool use_ssl)
 {
@@ -61,7 +69,8 @@ getsock_ssl(char *address, int port, bool use_ssl)
 		return NULL;
 
 	/* get a fresh socket */
-	if ((ssh->sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+	ssh->sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (ssh->sock == -1) {
 		logerror("lorien: Unable to get a new socket");
 		exit(errno);
 	}
@@ -75,12 +84,10 @@ getsock_ssl(char *address, int port, bool use_ssl)
 			exit(errno);
 		}
 	} else {
-		alarm(1);
 		if ((tmphost = gethostbyname(address)) == (struct hostent *)0) {
 			logerror("lorien: unable to get host adress:");
 			exit(errno);
 		}
-		alarm(0);
 		memcpy((char *)&tmpaddr, tmphost->h_addr,
 		    sizeof(struct in_addr));
 	}
@@ -94,7 +101,7 @@ getsock_ssl(char *address, int port, bool use_ssl)
 
 	/* attempt to bind the socket to our address */
 	if (bind(ssh->sock, (struct sockaddr *)&saddr,
-		 sizeof(struct sockaddr_in)) == -1) {
+		sizeof(struct sockaddr_in)) == -1) {
 		logerror("lorien: Error attempting to bind");
 		exit(errno);
 	}
@@ -127,13 +134,13 @@ getsock_ssl(char *address, int port, bool use_ssl)
 		assert(rc == 1);
 
 		if (SSL_CTX_use_certificate_file(ssh->ctx, "cert.pem",
-			    SSL_FILETYPE_PEM) <=0) {
+			SSL_FILETYPE_PEM) <= 0) {
 			logerror("lorien: can't open cert.pem");
 			exit(1);
 		}
 
 		if (SSL_CTX_use_PrivateKey_file(ssh->ctx, "key.pem",
-			    SSL_FILETYPE_PEM) <= 0) {
+			SSL_FILETYPE_PEM) <= 0) {
 			logerror("lorien: can't open key.pem");
 			exit(1);
 		}
@@ -143,7 +150,7 @@ getsock_ssl(char *address, int port, bool use_ssl)
 
 struct servsock_handle *
 acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
-	      int len2, int *port)
+    int len2, int *port)
 {
 	int ns;
 	socklen_t length = sizeof(struct sockaddr_in);
@@ -156,7 +163,6 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 	if (!ssc)
 		return NULL;
 
-
 	ns = accept(ssh->sock, (struct sockaddr *)&saddr, &length);
 	if (ns == -1) {
 		logerror("lorien: Error trying to accept connections");
@@ -165,23 +171,24 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 
 	ssc->sock = ns;
 	if (ssh->use_ssl) {
+		int rc;
 		ssc->use_ssl = true;
-	        ssc->ssl = SSL_new(ssh->ctx);
+		ssc->ssl = SSL_new(ssh->ctx);
 		if (!ssc->ssl)
 			goto close_sock;
 
 		SSL_set_fd(ssc->ssl, ns);
-		if (SSL_accept(ssc->ssl) <= 0) {
+		rc = SSL_accept(ssc->ssl);
+		if (rc <= 0)
 			goto close_sock;
-		}
 	}
-	
+
 	/* If the socket number is less than MAXCONN, it is representable in the
 	 * fd_set, and we can pass that to select(2). Otherwise, close the
 	 * connection.
 	 */
 	if (ns >= MAXCONN) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> All %lu connections are full.\r\n", MAXCONN);
 		outtosock_ssl(ssc, sendbuf);
 		goto close_ssc;
@@ -205,7 +212,7 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 	}
 	from[len - 1] = (char)0;
 	if (ban_findsite(from2) || ban_findsite(from)) {
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Your site is presently blocked.\r\n");
 		outtosock_ssl(ssc, sendbuf);
 		goto close_ssc;
@@ -225,7 +232,7 @@ close_sock:
 free_ssc:
 	free(ssc);
 
-	return NULL;			
+	return NULL;
 }
 
 int
@@ -233,19 +240,40 @@ infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size)
 {
 	int numchars;
 
-	if (ssh->ssl)
-		numchars = SSL_read(ssh->ssl, buffer, size);
-	else
-		numchars = recv(ssh->sock, buffer, size - 1, 0x0);
+	if (ssh->ssl) {
+		int rc;
+		struct sigaction oldaction = { 0 }, newaction = { 0 };
+		newaction.sa_handler = alarmhandler;
+		rc = sigaction(SIGALRM, &newaction, &oldaction);
+		if (rc != 0)
+			warn("sigaction failed");
+		alarm(1);
+		numchars = SSL_read(ssh->ssl, buffer, size - 1);
+		alarm(0);
+		rc = sigaction(SIGALRM, &oldaction, &newaction);
+		if (rc != 0)
+			warn("sigaction failed");
+		if (numchars <= 0) {
+			int rc = SSL_get_error(ssh->ssl, numchars);
+			if (rc == SSL_ERROR_WANT_READ)
+				numchars = 0;
+			else
+				return -1;
+		}
+	} else {
+		numchars = recv(ssh->sock, buffer, size - 1, MSG_DONTWAIT);
+		if ((numchars < 0) && (errno == EAGAIN))
+			numchars = 0;
+	}
 
-	if (numchars <= 0) {
+	if (numchars < 0) {
 		logerror("lorien: receive failed");
 		return -1;
 	}
 
-	buffer[numchars] = buffer[size - 1] = '\000';
+	buffer[numchars] = (char)0;
 
-	return 0;
+	return numchars;
 }
 
 int

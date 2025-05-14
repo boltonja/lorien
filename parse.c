@@ -60,8 +60,7 @@ parser_search_table(struct parse_context *context, char *pattern,
 	trie *leaf;
 
 	leaf = trie_match(context->index, (unsigned char *)pattern,
-			  strlen(pattern), matched,
-			  trie_keymatch_substring_first);
+	    strlen(pattern), matched, trie_keymatch_substring_first);
 
 	return (leaf) ? leaf->payload : NULL;
 }
@@ -73,7 +72,7 @@ parser_add_to_context(struct parse_context *context, struct parse_key *key)
 		return 0;
 
 	if (trie_add(context->index, (unsigned char *)key->token,
-		     strlen(key->token), key, NULL)) {
+		strlen(key->token), key, NULL)) {
 		context->numentries++;
 		return 1;
 	} else
@@ -151,7 +150,7 @@ parser_init_context(struct parse_context *context, struct parse_key *table,
 
 	for (tp = table; tp->token[0]; tp++) {
 		if (!trie_add(context->index, (unsigned char *)tp->token,
-			      strlen(tp->token), tp, NULL /* status */)) {
+			strlen(tp->token), tp, NULL /* status */)) {
 			trie_collapse(context->index, isdynamic);
 			context->index = NULL;
 			return 0;
@@ -188,7 +187,7 @@ parser_execute(struct splayer *pplayer, char *buf,
 			/* redirect to channel */
 			buf++; /* skip the '>' */
 		}
-		snprintf(sendbuf, sizeof(sendbuf), "(%d, %s) %s\r\n",
+		snprintf(sendbuf, sendbufsz, "(%d, %s) %s\r\n",
 		    player_getline(pplayer), pplayer->name, buf);
 		sendall(sendbuf, pplayer->chnl, 0);
 		return PARSE_OK;
@@ -204,9 +203,9 @@ parser_execute(struct splayer *pplayer, char *buf,
 		return PARSERR_SUPPRESS;
 	}
 
-	char (*p)(struct splayer * pplayer);
-	char (*p2)(struct splayer * pplayer, char *buf);
-	char (*p3)(struct splayer * pplayer, char *buf, speechmode mode);
+	char (*p)(struct splayer *pplayer);
+	char (*p2)(struct splayer *pplayer, char *buf);
+	char (*p3)(struct splayer *pplayer, char *buf, speechmode mode);
 
 	p = (void *)context->commands[entry->cmd].func;
 	p2 = (void *)context->commands[entry->cmd].func;

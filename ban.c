@@ -131,15 +131,15 @@ ban_list(struct splayer *who)
 	struct ban_item *curr = NULL;
 	char displayname[16];
 
-	snprintf(sendbuf, sizeof(sendbuf),
-		 ">> added by        pattern\r\n"
-		 ">> --------------- -------------------\r\n");
+	snprintf(sendbuf, sendbufsz,
+	    ">> added by        pattern\r\n"
+	    ">> --------------- -------------------\r\n");
 	sendtoplayer(who, sendbuf);
 
 	SLIST_FOREACH(curr, &banhead, entries) {
 		strlcpy(displayname, curr->owner, sizeof(displayname));
-		snprintf(sendbuf, sizeof(sendbuf), ">> %15s %s\r\n",
-			 displayname, curr->pattern);
+		snprintf(sendbuf, sendbufsz, ">> %15s %s\r\n", displayname,
+		    curr->pattern);
 		sendtoplayer(who, sendbuf);
 	}
 

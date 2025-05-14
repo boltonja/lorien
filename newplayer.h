@@ -35,8 +35,10 @@
 #include "parse.h"
 #include "platform.h"
 
-extern char sendbuf[OBUFSIZE];
-extern char recvbuf[BUFSIZE];
+extern char *sendbuf;
+extern char *recvbuf;
+extern const size_t sendbufsz;
+extern const size_t recvbufsz;
 extern struct splayer *players;
 extern chan *channels;
 extern int numconnect;
@@ -61,7 +63,8 @@ void removeplayer(struct splayer *player);
 void sendall(char *message, chan *channel, struct splayer *who);
 int sendtoplayer(struct splayer *who, char *message);
 int setfds(fd_set *needread);
-int setname(struct splayer *pplayer, char *name); //BUG:set_name() vs setname()?
+int setname(struct splayer *pplayer, char *name); // BUG:set_name() vs
+						  // setname()?
 int welcomeplayer(struct splayer *pplayer);
 parse_error wholist(struct splayer *pplayer, char *instring);
 parse_error wholist2(struct splayer *pplayer, char *instring);

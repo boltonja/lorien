@@ -43,6 +43,7 @@
  */
 
 #include <err.h>
+#include <sysexits.h>
 
 #include "ban.h"
 #include "db.h"
@@ -53,10 +54,7 @@
 #include "servsock_ssl.h"
 #include "utility.h"
 
-char recvbuf[BUFSIZE];
-char sendbuf[OBUFSIZE];
-
-struct servsock_handle *handle = NULL; /* non-ssl listener */
+struct servsock_handle *handle = NULL;	  /* non-ssl listener */
 struct servsock_handle *sslhandle = NULL; /* ssl listener */
 
 int
@@ -65,6 +63,13 @@ doit(int port, int sslport)
 	fd_set needread; /* for seeing which fds we need to read from */
 	int num;	 /* the number of needy fds */
 	int max;	 /* The highest fd we are using. */
+
+	sendbuf = malloc(sendbufsz);
+	if (!sendbuf)
+		err(EX_UNAVAILABLE, "cannot allocate sendbuf");
+	recvbuf = malloc(recvbufsz);
+	if (!recvbuf)
+		err(EX_UNAVAILABLE, "cannot allocate recvbuf");
 
 	initplayerstruct();
 
@@ -96,21 +101,21 @@ doit(int port, int sslport)
 	}
 #endif
 
-	if (gethostname(sendbuf, sizeof(sendbuf)) == -1) {
+	if (gethostname(sendbuf, sendbufsz) == -1) {
 		fprintf(stderr, "lorien: Error getting hostname!\n");
 		exit(2);
 	}
 
 	if (port) {
 		fprintf(stderr, "Establishing socket on %s on port %d...\n",
-			sendbuf, port);
+		    sendbuf, port);
 		handle = getsock_ssl(sendbuf, port, false);
 		fprintf(stderr, "Socket established on port %d.\n", port);
 	}
 
 	if (sslport) {
 		fprintf(stderr, "Establishing socket on %s on port +%d...\n",
-			sendbuf, sslport);
+		    sendbuf, sslport);
 		sslhandle = getsock_ssl(sendbuf, sslport, true);
 		fprintf(stderr, "Socket established on +port %d.\n", sslport);
 	}

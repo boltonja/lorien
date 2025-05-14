@@ -50,13 +50,11 @@ Dave Mott          (Energizer Rabbit)
 
 #include "ban.h"
 #include "commands.h"
-#include "journal.h"
 #include "log.h"
 #include "lorien.h"
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
-#include "ring.h"
 #include "servsock_ssl.h"
 
 #define level(p, w) \
@@ -89,6 +87,11 @@ char *player_privs_names[16] = {
 	NULL,
 	NULL,
 };
+
+char *sendbuf;
+char *recvbuf;
+const size_t sendbufsz = BUFSIZE;
+const size_t recvbufsz = BUFSIZE;
 
 void
 player_removegag(struct splayer *pplayer, struct splayer *target)
@@ -161,7 +164,7 @@ chan *curr;
 	rc = checkchannels(curr->next);
 #ifdef FIX_CHANNEL_LINKS
 	if (!rc) {
-		curr->next = (chan)*0;
+		curr->next = (chan) * 0;
 		rc = 1;
 	}
 #endif
@@ -326,7 +329,7 @@ newplayer(struct servsock_handle *ssh)
 		 * and dump the incoming call because we're out of memory.
 		 */
 
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Unable to allocate memory for player record.\r\n");
 		(void)outtosock_ssl(h, sendbuf);
 		(void)closesock_ssl(h);
@@ -344,8 +347,8 @@ newplayer(struct servsock_handle *ssh)
 	buf->h = h;
 
 #ifndef NO_LOG_CONNECT
-	snprintf(sendbuf, sizeof(sendbuf),
-	    "Someone came on from %s on line %d\n", buf->host, buf->s);
+	snprintf(sendbuf, sendbufsz, "Someone came on from %s on line %d\n",
+	    buf->host, buf->h);
 
 	log_msg(sendbuf);
 #endif
@@ -437,7 +440,7 @@ processinput(struct splayer *pplayer)
 		myptr = (char *)0;
 
 		if (!(pplayer->privs & CANPLAY)) {
-			snprintf(sendbuf, sizeof(sendbuf), "spammer %s: %s\n",
+			snprintf(sendbuf, sendbufsz, "spammer %s: %s\n",
 			    pplayer->host, line);
 			handlecommand(pplayer, line);
 			if (!(pplayer->privs & CANPLAY))
@@ -447,16 +450,56 @@ processinput(struct splayer *pplayer)
 
 		handlecommand(pplayer, line);
 	}
-	memset(pplayer->pbuf, 0, sizeof(pplayer->pbuf));
+}
+
+int
+defrag(struct splayer *pplayer, int inbytes, char *recvbuf, size_t recvbufsz)
+{
+	char *iptr;
+	char *bufptr;
+	char *eol;
+	int pbsz = sizeof(pplayer->pbuf);
+	int pblen;
+
+	iptr = recvbuf;
+
+	while (inbytes > 0) {
+		bufptr = strchr(pplayer->pbuf, (char)0);
+		pblen = bufptr - pplayer->pbuf;
+
+		int copied = strlcat(bufptr, iptr, pbsz - pblen);
+
+		inbytes -= copied;
+		pblen += copied;
+		iptr += copied;
+		eol = strrchr(pplayer->pbuf, '\n');
+		if (eol || (pblen >= pbsz)) {
+			if (eol) {
+				*eol++ = (char)0;
+				pblen = pblen - (eol - pplayer->pbuf);
+			} else
+				pblen = 0;
+
+			processinput(pplayer);
+			if (PLAYER_HAS(LEAVING, pplayer))
+				break;
+
+			if (eol) {
+				memmove(pplayer->pbuf, eol, pblen);
+				memset(&pplayer->pbuf[pblen], 0, pbsz - pblen);
+			} else
+				memset(pplayer->pbuf, 0, pbsz);
+		}
+	}
+	return inbytes;
 }
 
 void
 handleinput(fd_set needread)
 {
-	char *iptr;
-	char *bufptr;
 	struct splayer *pplayer;
 	struct splayer *tplayer;
+	int inbytes;
 
 	tplayer = players->next;
 
@@ -464,48 +507,28 @@ handleinput(fd_set needread)
 		pplayer = tplayer;
 		tplayer = pplayer->next;
 
-		if (PLAYER_HAS(LEAVING,
-			pplayer)) { /* avoid the need to wait for input */
+		if (PLAYER_HAS(LEAVING, pplayer)) {
 			removeplayer(pplayer);
 			continue;
 		}
 
-		if (FD_ISSET(pplayer->h->sock, &needread)) {
-			/* check to see if they disconnected */
+		if (!FD_ISSET(pplayer->h->sock, &needread))
+			continue;
 
-			if (recvfromplayer(pplayer) == -1) {
+		do {
+			inbytes = recvfromplayer(pplayer);
+
+			if (inbytes == -1) {
 				removeplayer(pplayer);
 				continue;
 			}
 
-			/* now we have some data. */
-
-			iptr = recvbuf;
-			bufptr = strchr(pplayer->pbuf, (char)0);
-
-			while (*iptr) {
-				if (*iptr == '\r' || *iptr == '\n') {
-					while (*iptr == '\r' || *iptr == '\n')
-						iptr++;
-
-					if (!PLAYER_HAS(LEAVING, pplayer)) {
-						processinput(pplayer);
-					}
-
-					/* now we check again after processing
-					 * the input. */
-
-					if (PLAYER_HAS(LEAVING, pplayer)) {
-						removeplayer(pplayer);
-						break;
-					}
-
-					bufptr = pplayer->pbuf;
-				} else {
-						*bufptr++ = *iptr++;
-				}
+			defrag(pplayer, inbytes, recvbuf, recvbufsz);
+			if (PLAYER_HAS(LEAVING, pplayer)) {
+				removeplayer(pplayer);
+				break;
 			}
-		}
+		} while (inbytes > 0);
 	}
 }
 
@@ -522,7 +545,7 @@ removeplayer(struct splayer *player)
 			       in limbo */
 	}
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> line %d(%s) just left.\r\n",
+	snprintf(sendbuf, sendbufsz, ">> line %d(%s) just left.\r\n",
 	    player_getline(player), player->name);
 
 	if ((player_getline(player) <= (MAXCONN - 3))) {
@@ -565,11 +588,11 @@ wholist(struct splayer *pplayer, char *instring)
 	buf = players->next;
 
 #ifdef ONFROM_ANY
-	snprintf(sendbuf, sizeof(sendbuf), "%-4s %-27s %-13s %-6s %-25s\r\n",
-	    "Line", "Name", "Channel", "Idle", "Doing  ");
+	snprintf(sendbuf, sendbufsz, "%-4s %-27s %-13s %-6s %-25s\r\n", "Line",
+	    "Name", "Channel", "Idle", "Doing  ");
 #else
-	snprintf(sendbuf, sizeof(sendbuf), "%-4s %-27s %-13s %-6s %-25s\r\n",
-	    "Line", "Name", "Channel", "Idle", "On From");
+	snprintf(sendbuf, sendbufsz, "%-4s %-27s %-13s %-6s %-25s\r\n", "Line",
+	    "Name", "Channel", "Idle", "On From");
 #endif
 	sendtoplayer(pplayer, sendbuf);
 	sendtoplayer(pplayer, LINE);
@@ -578,7 +601,7 @@ wholist(struct splayer *pplayer, char *instring)
 		match = 0;
 		int line = player_getline(buf);
 		if (target) {
-			snprintf(sendbuf, sizeof(sendbuf), "%d", line);
+			snprintf(sendbuf, sendbufsz, "%d", line);
 			if (atoi(target) && !strchr(target, '.')) {
 				if (atoi(target) == line)
 					match = 1;
@@ -592,11 +615,11 @@ wholist(struct splayer *pplayer, char *instring)
 					match = 1;
 		}
 
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    "%c%c%-2d %-27.27s %-13.13s %-6s %-25.25s\r\n",
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ',
-		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ',
-		    line, buf->name, buf->chnl ? (buf->chnl->name) : " ",
+		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ', line,
+		    buf->name, buf->chnl ? (buf->chnl->name) : " ",
 		    idlet(buf->idle), buf->onfrom);
 
 		if ((!target) || (target && match)) {
@@ -610,11 +633,11 @@ wholist(struct splayer *pplayer, char *instring)
 	sendtoplayer(pplayer, LINE);
 
 	if (count == 1)
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d record displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d record displayed.\r\n",
+		    count);
 	else
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d records displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d records displayed.\r\n",
+		    count);
 
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
@@ -645,9 +668,8 @@ wholist2(struct splayer *pplayer, char *instring)
 	  -------------------------------------------------------------------------------
 	*/
 
-	snprintf(sendbuf, sizeof(sendbuf),
-	    "%-4s %-26s %-8s %-8s %-15s %-8s %-3s\r\n", "Line", "Name",
-	    "On For", "Vrfy", "Host", "Port", "Lev");
+	snprintf(sendbuf, sendbufsz, "%-4s %-26s %-8s %-8s %-15s %-8s %-3s\r\n",
+	    "Line", "Name", "On For", "Vrfy", "Host", "Port", "Lev");
 	sendtoplayer(pplayer, sendbuf);
 	sendtoplayer(pplayer, LINE);
 
@@ -655,7 +677,7 @@ wholist2(struct splayer *pplayer, char *instring)
 		int line = player_getline(buf);
 		match = 0;
 		if (target) {
-			snprintf(sendbuf, sizeof(sendbuf), "%d", line);
+			snprintf(sendbuf, sendbufsz, "%d", line);
 			if (atoi(target) && !strchr(target, '.')) {
 				if (atoi(target) == line)
 					match = 1;
@@ -665,18 +687,18 @@ wholist2(struct splayer *pplayer, char *instring)
 				match = 1;
 		}
 
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    "%c%c%-2d %-26.262s %-8s %-8s %-15.15s %-8d ",
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ',
-		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ',
-		    line, buf->name, timelet(buf->cameon, 2),
+		    (buf->chnl) ? ((buf->chnl->secure) ? 'S' : ' ') : ' ', line,
+		    buf->name, timelet(buf->cameon, 2),
 		    vrfy[PLAYER_HAS(VRFY, buf) ? 1 : 0], buf->numhost,
 		    buf->port);
 
 		if ((!target) || (target && match)) {
 			sendtoplayer(pplayer, sendbuf);
 
-			snprintf(sendbuf, sizeof(sendbuf), "%-3d\r\n",
+			snprintf(sendbuf, sendbufsz, "%-3d\r\n",
 			    (pplayer->seclevel > 0) ? level(buf, pplayer) : 1);
 			sendtoplayer(pplayer, sendbuf);
 
@@ -689,11 +711,11 @@ wholist2(struct splayer *pplayer, char *instring)
 	sendtoplayer(pplayer, LINE);
 
 	if (count == 1)
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d record displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d record displayed.\r\n",
+		    count);
 	else
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d records displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d records displayed.\r\n",
+		    count);
 
 	sendtoplayer(pplayer, sendbuf);
 	return PARSE_OK;
@@ -711,7 +733,7 @@ wholist3(struct splayer *pplayer)
 
 	while (buf) {
 		int line = player_getline(buf);
-		snprintf(sendbuf, sizeof(sendbuf), "%2d%c)%-14.14s", line,
+		snprintf(sendbuf, sendbufsz, "%2d%c)%-14.14s", line,
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ', buf->name);
 		sendtoplayer(pplayer, sendbuf);
 		count++;
@@ -727,11 +749,11 @@ wholist3(struct splayer *pplayer)
 	sendtoplayer(pplayer, LINE);
 
 	if (count == 1)
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d record displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d record displayed.\r\n",
+		    count);
 	else
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> %d records displayed.\r\n", count);
+		snprintf(sendbuf, sendbufsz, ">> %d records displayed.\r\n",
+		    count);
 
 	sendtoplayer(pplayer, sendbuf);
 
@@ -770,11 +792,12 @@ static char badchars[] = {
 	0x1d, /* GS */
 	0x1e, /* RS */
 	0x1f, /* US */
-	0x00 /* Terminate the string */
+	0x00  /* Terminate the string */
 };
 
 int
-cleanupbuf(char* inbuf, size_t inbufsz, bool removecaps) {
+cleanupbuf(char *inbuf, size_t inbufsz, bool removecaps)
+{
 	iconv_t cd;
 	size_t rc;
 	char buf[2 * inbufsz];
@@ -786,12 +809,12 @@ cleanupbuf(char* inbuf, size_t inbufsz, bool removecaps) {
 	memset(buf, 0, sizeof(buf));
 
 	cd = iconv_open("UTF-8", "UTF-8");
-	if (cd == (iconv_t) -1)
+	if (cd == (iconv_t)-1)
 		err(EX_SOFTWARE, "iconv_open");
 
 	while (ileft && oleft) {
 		rc = iconv(cd, &ip, &ileft, &op, &oleft);
-		if (rc == (size_t) -1) {
+		if (rc == (size_t)-1) {
 			assert(errno != E2BIG);
 			if (errno == EINVAL || errno == EILSEQ) {
 				if (oleft) {
@@ -810,6 +833,11 @@ cleanupbuf(char* inbuf, size_t inbufsz, bool removecaps) {
 		if ((op = strpbrk(op, badchars)))
 			*op = '.';
 
+	op = buf;
+	while (op)
+		if ((op = strchr(op, '\r')))
+			*op = '\n';
+
 	if (removecaps)
 		for (size_t i = 0; i < strnlen(buf, sizeof(buf)); ++i)
 			if (isascii(buf[i]))
@@ -823,18 +851,18 @@ cleanupbuf(char* inbuf, size_t inbufsz, bool removecaps) {
 int
 recvfromplayer(struct splayer *who)
 {
-	int error;
+	int numread;
 	int outsz;
 	bool removecaps = !(who->privs & CANCAPS);
 
-	error = infromsock_ssl(who->h, recvbuf, sizeof(recvbuf));
-	if (error == -1)
-		return error;
-	outsz = cleanupbuf(recvbuf, sizeof(recvbuf), removecaps);
-	if (outsz >= sizeof(recvbuf))
+	numread = infromsock_ssl(who->h, recvbuf, recvbufsz);
+	if (numread == -1)
+		return numread;
+	outsz = cleanupbuf(recvbuf, recvbufsz, removecaps);
+	if (outsz >= recvbufsz)
 		return -1; /* buffer overrun */
 
-	return 0;
+	return outsz;
 }
 
 int
@@ -897,7 +925,8 @@ sendtoplayer(struct splayer *who, char *message)
 		return 0;
 
 	if (message[0] == '(') {
-		struct splayer *sender = players;
+		struct splayer *sender;
+
 		while (!isdigit(message[end]) && message[end])
 			end++;
 		line = atoi(&message[end]);
@@ -909,7 +938,8 @@ sendtoplayer(struct splayer *who, char *message)
 	}
 
 	if (outtosock_ssl(who->h,
-	    PLAYER_HAS(WRAP, who) ? wrap(message, who->wrap) : message)	== -1) {
+		PLAYER_HAS(WRAP, who) ? wrap(message, who->wrap) : message) ==
+	    -1) {
 		PLAYER_SET(LEAVING, who);
 		return 0;
 	}
@@ -930,14 +960,14 @@ welcomeplayer(struct splayer *pplayer)
 	}
 
 	while (fgets(ibuf, BUFSIZE, fpWELCOME) != NULL) {
-		snprintf(sendbuf, sizeof(sendbuf), "220 %s\r", ibuf);
+		snprintf(sendbuf, sendbufsz, "220 %s\r", ibuf);
 		(void)sendtoplayer(pplayer, sendbuf);
 	}
 
 	(void)fclose(fpWELCOME);
 
-	snprintf(sendbuf, sizeof(sendbuf),
-	    "220 This site is running Lorien %s\r\n", VERSION);
+	snprintf(sendbuf, sendbufsz, "220 This site is running Lorien %s\r\n",
+	    VERSION);
 	sendtoplayer(pplayer, sendbuf);
 	return 1;
 }
@@ -980,12 +1010,9 @@ setname(struct splayer *pplayer, char *name)
 
 		if (*buf != '\000') {
 			strlcpy(pplayer->name, buf, sizeof(pplayer->name));
-			snprintf(sendbuf, sizeof(sendbuf),
-				 ">> Name changed.\r\n");
+			snprintf(sendbuf, sendbufsz, ">> Name changed.\r\n");
 		} else {
-			snprintf(sendbuf, sizeof(sendbuf),
-			    ">> Invalid name\r\n");
-
+			snprintf(sendbuf, sendbufsz, ">> Invalid name\r\n");
 		}
 		sendtoplayer(pplayer, sendbuf);
 	}
