@@ -35,20 +35,18 @@
 
 #ifndef _UTILITY_H_
 #define _UTILITY_H_
-#define logerror(s) log_error(s, __FILE__, __LINE__)
 
-#define BOLD	    1
-#define UNDERLINE   2
-#define BLINK	    3
-#define REVERSE	    4
+#define BOLD	  1
+#define UNDERLINE 2
+#define BLINK	  3
+#define REVERSE	  4
 
-#define HI_BITS	    0x1E
+#define HI_BITS	  0x1E
 
 extern char *hi_types[];
 
 int construct_mask(char *args, int *mask);
 char *expand_hilite(int mask, char *buffer);
-void log_error(char *prefix, char *file, int lineno);
 char *mask2string32(int mask, int validbits, char *buffer, size_t buflen,
     char **strings, char *separator);
 char *mask2string(int mask, char *buffer, char **strings, char *separator);

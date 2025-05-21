@@ -48,6 +48,7 @@
 #include "ban.h"
 #include "db.h"
 #include "files.h"
+#include "log.h"
 #include "lorien.h"
 #include "newplayer.h"
 #include "platform.h"
@@ -56,6 +57,7 @@
 
 struct servsock_handle *handle = NULL;	  /* non-ssl listener */
 struct servsock_handle *sslhandle = NULL; /* ssl listener */
+char *logfile = LOGFILE;
 
 int
 doit(int port, int sslport)
@@ -120,6 +122,11 @@ doit(int port, int sslport)
 		fprintf(stderr, "Socket established on +port %d.\n", sslport);
 	}
 
+	printf("redirecting stderr to %s\n", logfile);
+	if (freopen(logfile, "a", stderr) == NULL)
+		err(EX_OSERR, "unable to open %s", logfile);
+	err_set_file(stderr);
+
 	MAXCONN = gettablesize();
 
 	if (MAXCONN > FD_SETSIZE)
@@ -140,7 +147,7 @@ doit(int port, int sslport)
 		if ((num = select(max + 1, &needread, (fd_set *)0, (fd_set *)0,
 			 (struct timeval *)0)) == -1) {
 			if (errno != EINTR) {
-				perror("lorien select failed");
+				logerror("lorien select failed", errno);
 				continue;
 			} else
 				continue; /* do it again and get it right */
@@ -148,13 +155,11 @@ doit(int port, int sslport)
 
 		if (handle && FD_ISSET(handle->sock, &needread))
 			if (newplayer(handle) == -1)
-				fprintf(stderr,
-				    "lorien: ran out of file descriptors!\n");
+				logerror("cannot add player", errno);
 
 		if (sslhandle && FD_ISSET(sslhandle->sock, &needread))
 			if (newplayer(sslhandle) == -1)
-				fprintf(stderr,
-				    "lorien: ran out of file descriptors!\n");
+				logerror("cannot add player", errno);
 
 		handleinput(needread);
 	}

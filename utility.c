@@ -54,12 +54,14 @@ skipdigits(char *buf)
 	return buf;
 }
 
-char *trimspace(char *buf, size_t sz) {
+char *
+trimspace(char *buf, size_t sz)
+{
 	char *p = skipspace(buf);
 	char *e = &p[strnlen(p, sz) - 1];
 
 	while (isspace(*e) && e >= p)
-		*e-- = (char) 0;
+		*e-- = (char)0;
 
 	return p;
 }
@@ -92,19 +94,6 @@ strstr(char *s1, char *s2)
 	return (char *)0;
 }
 #endif
-
-void
-log_error(char *prefix, char *file, int lineno)
-{
-	int loc_errno = errno;
-	char logbuf[1024];
-
-	if (loc_errno != 0) {
-		(void)snprintf(logbuf, sizeof(logbuf), "%s: %s[%s:%d]", prefix,
-		    strerror(loc_errno), file, lineno);
-		log_msg(logbuf);
-	}
-}
 
 char *
 expand_hilite(int mask, char *buffer)
@@ -141,7 +130,7 @@ expand_hilite(int mask, char *buffer)
 				(void)snprintf(errbuf, sizeof(errbuf),
 				    "Unknown bit in hilite mask 0x%x number %d",
 				    mask, bit);
-				log_msg(errbuf);
+				logmsg(errbuf);
 			}
 				return (char *)0;
 			}
@@ -224,7 +213,7 @@ mask2string32(int mask, int validbits, char *buffer, size_t buflen,
 			if ((1 << bit) & mask) {
 				if (*buffer) {
 					(void)strlcat(buffer, separator,
-						      buflen);
+					    buflen);
 				}
 				(void)strlcat(buffer, strings[bit], buflen);
 			}
@@ -311,4 +300,3 @@ timelet(time_t idle, long precision)
 
 	return buf;
 }
-

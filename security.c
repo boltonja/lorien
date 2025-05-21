@@ -68,7 +68,7 @@ haven_shutdown(struct splayer *pplayer)
 	snprintf(sendbuf, sendbufsz,
 	    "Shutting down to shut down command by %s from %s.\n",
 	    pplayer->name, pplayer->host);
-	log_msg(sendbuf);
+	logmsg(sendbuf);
 	snprintf(sendbuf, sendbufsz,
 	    ">> Shutting down to shut down command by %s from %s.\r\n",
 	    pplayer->name, pplayer->host);

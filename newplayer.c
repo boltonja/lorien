@@ -155,7 +155,7 @@ chan *curr;
 		return 1;
 
 	if (curr->visited) {
-		log_msg(
+		logmsg(
 		    "checkchannels():  found circular link in channel list.\n");
 		return 0;
 	}
@@ -180,7 +180,7 @@ findchannel(char *name)
 
 #ifdef CHECK_CHANNELS
 	if (!checkchannels(channels)) {
-		log_msg("findchannel(): channel list incorrect.");
+		logmsg("findchannel(): channel list incorrect.");
 		sleep(2);
 		abort(1);
 	}
@@ -224,7 +224,7 @@ newchannel(char *name)
 
 #ifdef CHECK_CHANNELS
 	if (!checkchannels(channels)) {
-		log_msg("newchannel():  channel list incorrect.");
+		logmsg("newchannel():  channel list incorrect.");
 		sleep(2);
 		abort(1);
 	}
@@ -240,7 +240,7 @@ remove_channel(chan *channel)
 
 #ifdef CHECK_CHANNELS
 	if (!checkchannels(channels)) {
-		log_msg("remove_channel():  channel list incorrect on entry.");
+		logmsg("remove_channel():  channel list incorrect on entry.");
 		sleep(2);
 		abort(1);
 	}
@@ -262,7 +262,7 @@ remove_channel(chan *channel)
 
 #ifdef CHECK_CHANNELS
 	if (!checkchannels(channels)) {
-		log_msg("remove_channel():  channel list incorrect on exit.");
+		logmsg("remove_channel():  channel list incorrect on exit.");
 		sleep(2);
 		abort(1);
 	}
@@ -308,11 +308,16 @@ newplayer(struct servsock_handle *ssh)
 	struct servsock_handle *h;
 	struct splayer *buf;
 	time_t tmptime;
+	int err = 0, rc;
 
 	h = acceptcon_ssl(ssh, players->host, sizeof(players->host),
 	    players->numhost, sizeof(players->numhost), &players->port);
-	if (!h)
+	if (!h) {
+		err = errno;
+		logerror("acceptcon_ssl() failed", err);
+		errno = err;
 		return -1;
+	}
 
 	/* find the tail of the linked list of players */
 
@@ -324,17 +329,13 @@ newplayer(struct servsock_handle *ssh)
 	buf->next = (struct splayer *)malloc(sizeof(struct splayer));
 
 	if (buf->next == (struct splayer *)0) {
-		/*
-		 * use the dummy record at the beginning of the list to accept
-		 * and dump the incoming call because we're out of memory.
-		 */
-
 		snprintf(sendbuf, sendbufsz,
 		    ">> Unable to allocate memory for player record.\r\n");
 		(void)outtosock_ssl(h, sendbuf);
 		(void)closesock_ssl(h);
+		logmsg(sendbuf);
 
-		/* not fatal should let others continue to chat */
+		errno = ENOMEM;
 		return -1;
 	}
 
@@ -346,18 +347,23 @@ newplayer(struct servsock_handle *ssh)
 	playerinit(buf, tmptime, players->host, players->numhost);
 	buf->h = h;
 
-#ifndef NO_LOG_CONNECT
 	snprintf(sendbuf, sendbufsz, "Someone came on from %s on line %d\n",
-	    buf->host, buf->h);
-
-	log_msg(sendbuf);
-#endif
+	    buf->host, buf->h->sock);
+	logmsg(sendbuf);
 
 	/* welcome our new arrival */
 
 	numconnect++;
-	welcomeplayer(buf);
+	rc = welcomeplayer(buf);
+	if (rc < 0) {
+		err = errno;
+		logerror("welcomeplayer() failed", err);
+		removeplayer(buf);
+		errno = err;
+		return -1;
+	}
 
+	errno = 0;
 	return player_getline(buf);
 }
 
@@ -432,6 +438,7 @@ processinput(struct splayer *pplayer)
 	time_t tmptime;
 	char *myptr = pplayer->pbuf;
 	char *line;
+	char buf[OBUFSIZE];
 
 	tmptime = time((time_t *)0);
 	pplayer->idle = tmptime;
@@ -440,11 +447,11 @@ processinput(struct splayer *pplayer)
 		myptr = (char *)0;
 
 		if (!(pplayer->privs & CANPLAY)) {
-			snprintf(sendbuf, sendbufsz, "spammer %s: %s\n",
+			snprintf(buf, sizeof(buf), "spammer %s: %s\n",
 			    pplayer->host, line);
 			handlecommand(pplayer, line);
 			if (!(pplayer->privs & CANPLAY))
-				log_msg(sendbuf);
+				logmsg(buf);
 			continue;
 		}
 
@@ -481,8 +488,13 @@ defrag(struct splayer *pplayer, int inbytes, char *recvbuf, size_t recvbufsz)
 				pblen = 0;
 
 			processinput(pplayer);
-			if (PLAYER_HAS(LEAVING, pplayer))
+			if (PLAYER_HAS(LEAVING, pplayer)) {
+				snprintf(sendbuf, sendbufsz,
+				    "player %d is leaving",
+				    player_getline(pplayer));
+				logmsg(sendbuf);
 				break;
+			}
 
 			if (eol) {
 				memmove(pplayer->pbuf, eol, pblen);
@@ -508,6 +520,9 @@ handleinput(fd_set needread)
 		tplayer = pplayer->next;
 
 		if (PLAYER_HAS(LEAVING, pplayer)) {
+			snprintf(sendbuf, sendbufsz, "player %s(%d) left",
+			    pplayer->name, pplayer->h->sock);
+			logmsg(sendbuf);
 			removeplayer(pplayer);
 			continue;
 		}
@@ -519,12 +534,20 @@ handleinput(fd_set needread)
 			inbytes = recvfromplayer(pplayer);
 
 			if (inbytes == -1) {
+				snprintf(sendbuf, sendbufsz,
+				    "player %s(%d) left", pplayer->name,
+				    pplayer->h->sock);
+				logmsg(sendbuf);
 				removeplayer(pplayer);
 				continue;
 			}
 
 			defrag(pplayer, inbytes, recvbuf, recvbufsz);
 			if (PLAYER_HAS(LEAVING, pplayer)) {
+				snprintf(sendbuf, sendbufsz,
+				    "player %s(%d) left", pplayer->name,
+				    pplayer->h->sock);
+				logmsg(sendbuf);
 				removeplayer(pplayer);
 				break;
 			}
@@ -920,6 +943,7 @@ sendtoplayer(struct splayer *who, char *message)
 {
 	int line;
 	int end = 1;
+	int e;
 
 	if (PLAYER_HAS(LEAVING, who))
 		return 0;
@@ -934,16 +958,19 @@ sendtoplayer(struct splayer *who, char *message)
 		if (!sender)
 			return 0;
 		if (isgagged(who, sender))
-			return 1; /* do not alert gagged player */
+			return 0; /* do not alert gagged player */
 	}
 
 	if (outtosock_ssl(who->h,
 		PLAYER_HAS(WRAP, who) ? wrap(message, who->wrap) : message) ==
 	    -1) {
+		e = errno;
+		logerror("outtosock_ssl() failed", e);
+		errno = e;
 		PLAYER_SET(LEAVING, who);
-		return 0;
+		return -1;
 	}
-	return 1;
+	return 0;
 }
 
 int
@@ -951,25 +978,43 @@ welcomeplayer(struct splayer *pplayer)
 {
 	FILE *fpWELCOME;
 	char ibuf[BUFSIZE];
+	int e, rc;
 
 	if ((fpWELCOME = fopen(WELCOMEFILE, "r")) == (FILE *)0) {
-		(void)sendtoplayer(pplayer, "Unable to open welcome file.\r\n");
-		fprintf(stderr, "Unable to open welcome file %s.\n",
+		e = errno;
+		sendtoplayer(pplayer, "Unable to open welcome file.\r\n");
+		snprintf(ibuf, sizeof(ibuf), "Unable to open welcome file %s",
 		    WELCOMEFILE);
+		logerror(ibuf, e);
+		errno = 0;
 		return 0;
 	}
 
 	while (fgets(ibuf, BUFSIZE, fpWELCOME) != NULL) {
 		snprintf(sendbuf, sendbufsz, "220 %s\r", ibuf);
-		(void)sendtoplayer(pplayer, sendbuf);
+		rc = sendtoplayer(pplayer, sendbuf);
+		if (rc < 0) {
+			e = errno;
+			logerror("cannot send welcomefile", e);
+			errno = e;
+			fclose(fpWELCOME);
+			return -1;
+		}
 	}
 
 	(void)fclose(fpWELCOME);
 
 	snprintf(sendbuf, sendbufsz, "220 This site is running Lorien %s\r\n",
 	    VERSION);
-	sendtoplayer(pplayer, sendbuf);
-	return 1;
+	rc = sendtoplayer(pplayer, sendbuf);
+	if (rc < 0) {
+		e = errno;
+		logerror("cant send version", e);
+		errno = e;
+		return -1;
+	}
+	errno = 0;
+	return 0;
 }
 
 struct splayer *

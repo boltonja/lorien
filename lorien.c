@@ -45,8 +45,8 @@
 #define _LORIEN_C_
 
 #include <err.h>
-#include <time.h>
 #include <sysexits.h>
+#include <time.h>
 
 #include "chat.h"
 #include "log.h"
@@ -64,7 +64,7 @@ int sslport = 0;
 int
 main(int argc, char **argv)
 {
-	lorien_boot_time = time((time_t *) NULL);
+	lorien_boot_time = time((time_t *)NULL);
 
 	handleargs(argc - 1, argv + 1);
 
@@ -78,7 +78,6 @@ handleargs(int argc, char **argv)
 {
 	int fdaemon = 0;
 	int childid;
-	char *logfile = (char *)0;
 	int i;
 
 	for (i = 0; i < argc; i++) {
@@ -116,11 +115,18 @@ handleargs(int argc, char **argv)
 
 	if (!sslport && !port)
 		err(EX_DATAERR, "you must specify at least one port");
-	if (logfile) {
-		printf("redirecting stderr to %s\n", logfile);
-		if (freopen(logfile, "w", stderr) == NULL)
-			err(EX_OSERR, "unable to open logfile %s", logfile);
+
+	if (sslport) {
+		int rc;
+
+		rc = access("cert.pem", R_OK);
+		if (rc != 0)
+			err(EX_NOINPUT, "can't access cert.pem");
+		rc = access("key.pem", R_OK);
+		if (rc != 0)
+			err(EX_NOINPUT, "can't access key.pem");
 	}
+
 	printf("starting lorien on port %d/+%d.\n", port, sslport);
 
 #ifndef _MSC_VER
@@ -131,8 +137,6 @@ handleargs(int argc, char **argv)
 			err(EX_OSERR, "fork");
 			break;
 		case 0:
-			if (logfile == (char *)0)
-				(void)fclose(stderr);
 			break;
 		default:
 			printf("Daemon's pid is %d.\n", childid);

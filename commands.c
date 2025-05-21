@@ -1375,7 +1375,7 @@ promote(struct splayer *pplayer, char *buf)
 			snprintf(sendbuf, sendbufsz, "%s(%d) promoted %s(%d)",
 			    pplayer->name, pplayer->seclevel, who->name,
 			    who->seclevel);
-			log_msg(sendbuf);
+			logmsg(sendbuf);
 			snprintf(sendbuf, sendbufsz, ">> %s promoted.\r\n",
 			    who->name);
 			sendtoplayer(pplayer, sendbuf);
@@ -1444,7 +1444,7 @@ kill_player(struct splayer *pplayer, char *buf)
 			sendtoplayer(pplayer, sendbuf);
 			snprintf(sendbuf, sendbufsz, "%s killed %s.",
 			    pplayer->name, who->name);
-			log_msg(sendbuf);
+			logmsg(sendbuf);
 			removeplayer(who);
 		} else {
 			snprintf(sendbuf, sendbufsz,
@@ -1456,7 +1456,7 @@ kill_player(struct splayer *pplayer, char *buf)
 			sendtoplayer(who, sendbuf);
 			snprintf(sendbuf, sendbufsz, "%s tried to kill %s.",
 			    pplayer->name, who->name);
-			log_msg(sendbuf);
+			logmsg(sendbuf);
 		}
 	}
 	return PARSE_OK;
@@ -1509,14 +1509,14 @@ broadcast2(struct splayer *pplayer, char *buf)
 		/* 	    snprintf(sendbuf, sendbufsz, ">> global info
 		 * |%s| sent\r\n",buf); */
 		/* 	    sendtoplayer(pplayer,sendbuf); */
-		/* 	    log_msg(sendbuf); */
+		/* 	    logmsg(sendbuf); */
 	} else {
 		who = lookup(line);
 
 		/* 	    snprintf(sendbuf, sendbufsz, "private info
 		 * |%s| targeted %d.\r\n", buf,line); */
 		/* 	    sendtoplayer(pplayer,sendbuf); */
-		/* 	    log_msg(sendbuf); */
+		/* 	    logmsg(sendbuf); */
 
 		buf = (char *)skipspace(skipdigits(buf));
 		snprintf(sendbuf, sendbufsz, "%s\r\n", buf);
@@ -1529,7 +1529,7 @@ broadcast2(struct splayer *pplayer, char *buf)
 			snprintf(sendbuf, sendbufsz,
 			    ">> error:  Player %d does not exist.\r\n", line);
 			sendtoplayer(pplayer, sendbuf);
-			/*		log_msg(sendbuf); */
+			/*		logmsg(sendbuf); */
 		}
 	}
 	return PARSE_OK;
@@ -1539,11 +1539,10 @@ parse_error
 playerquit(struct splayer *pplayer, char *buf)
 {
 	if (pplayer->privs & CANQUIT) {
-#ifndef NO_LOG_CONNECT
 		snprintf(sendbuf, sendbufsz, "%s was on from %s", pplayer->name,
 		    pplayer->host);
-		log_msg(sendbuf);
-#endif
+		logmsg(sendbuf);
+
 		snprintf(sendbuf, sendbufsz, EXIT_MSG);
 		sendtoplayer(pplayer, sendbuf);
 		PLAYER_SET(LEAVING, pplayer); /* handleinput() will remove */
@@ -2058,7 +2057,7 @@ handlecommand(struct splayer *pplayer, char *command)
 			    default_parse_table);
 			if (!parser_init_context(&default_parser_context,
 				default_parse_table, commands, false)) {
-				log_msg("can't allocate parse context\n");
+				logmsg("can't allocate parse context\n");
 				exit(ENOMEM);
 			}
 			main_parser_context = &default_parser_context;

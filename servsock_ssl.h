@@ -37,6 +37,7 @@
 
 struct servsock_handle {
 	int sock;
+	bool no_shutdown;
 	bool use_ssl;
 	SSL *ssl;
 	SSL_CTX *ctx;
@@ -47,8 +48,7 @@ struct servsock_handle {
 struct servsock_handle *getsock_ssl(char *address, int port, bool use_ssl);
 
 struct servsock_handle *acceptcon_ssl(struct servsock_handle *ssh, char *from,
-				      int len, char *from2, int len2,
-				      int *port);
+    int len, char *from2, int len2, int *port);
 
 int infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size);
 

@@ -34,5 +34,8 @@
 #include "lorien.h"
 #include "newplayer.h"
 
-int log_msg(char *what);
+#define logerror(s, e) log_error(s, e, __FILE__, __LINE__)
+#define logmsg(s)      log_msg(s, __FILE__, __LINE__)
+void log_error(const char *prefix, int err, const char *file, int lineno);
+void log_msg(const char *what, const char *file, int line);
 int purgelog(struct splayer *pplayer);

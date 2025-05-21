@@ -49,8 +49,8 @@ Dave Mott          (Energizer Rabbit)
 #include <time.h>
 
 #include "db.h"
-#include "utility.h"
 #include "ring.h"
+#include "utility.h"
 
 struct servsock_handle;
 
@@ -61,12 +61,12 @@ size_t MAXCONN;
 #endif
 
 /* two constants for strcontains() */
-#define EXACT	 1
-#define SUB	 2
-#define REGEX	 4 /* not yet implemented */
+#define EXACT	1
+#define SUB	2
+#define REGEX	4 /* not yet implemented */
 
-#define VERSION	 "1.7.8b1"      /* the version number. */
-#define MAXARGS	 4	      /* the maximum number of args on a cmd line */
+#define VERSION "1.7.8b2" /* the version number. */
+#define MAXARGS 4	  /* the maximum number of args on a cmd line */
 
 /* These are the security levels.
  *
@@ -147,6 +147,7 @@ typedef enum { SPEECH_NORMAL, SPEECH_YELL, SPEECH_PRIVATE } speechmode;
 
 extern char *player_flags_names[16];
 extern char *player_privs_names[16];
+extern char *logfile;
 
 /* values for flags */
 enum player_flags {
@@ -192,11 +193,11 @@ enum player_privs {
 #define MESSAGE 1
 #define COMMAND 2
 
-#define USAGE \
+#define USAGE                                                    \
 	"USAGE: lorien [-l file] [-d] [-s sslport] portnumber\n" \
 	"usually just: lorien -d 2525\n"
 
-#define chan	struct channel_struct
+#define chan struct channel_struct
 extern time_t lorien_boot_time;
 
 struct channel_struct {
@@ -215,12 +216,12 @@ struct channel_struct {
 };
 
 /* types for who list */
-#define ALL		  (chan *)-3
-#define CHANNEL		  (chan *)-1
-#define ARRIVAL		  (chan *)-2
-#define YELL		  (chan *)-4
-#define INFORMATIONAL	  (chan *)-6
-#define DEPARTURE	  (chan *)-5
+#define ALL	      (chan *)-3
+#define CHANNEL	      (chan *)-1
+#define ARRIVAL	      (chan *)-2
+#define YELL	      (chan *)-4
+#define INFORMATIONAL (chan *)-6
+#define DEPARTURE     (chan *)-5
 
 struct splayer {
 	int seclevel; /* how powerful are they? */
@@ -246,9 +247,9 @@ struct splayer {
 	int spamming;	    /* if the player is probably an e-mail spambot */
 	char pbuf[BUFSIZE]; /* player buffer for accumulating text in char mode
 			     */
-	struct splayer *dotspeeddial;   /* last person .p'd to */
-	struct servsock_handle *h; /* line number is h->sock */
-	int port;	    /* remote port number */
+	struct splayer *dotspeeddial; /* last person .p'd to */
+	struct servsock_handle *h;    /* line number is h->sock */
+	int port;		      /* remote port number */
 };
 
 int die(int exitstat);

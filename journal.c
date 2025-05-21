@@ -42,6 +42,6 @@ journal_channel(char *name, char *quota)
 {
 	char buf[OBUFSIZE];
 	snprintf(buf, sizeof(buf), "channel:%s:%s\n", name, quota);
-	log_msg(buf);
+	logmsg(buf);
 	return 0;
 }

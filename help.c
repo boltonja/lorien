@@ -160,7 +160,7 @@ showhelp(struct splayer *pplayer, char *buf)
 #ifdef TESTHELP
 				printf("%s", outbuf);
 #else
-				log_msg(outbuf);
+				logmsg(outbuf);
 #endif
 			}
 			break;
@@ -191,7 +191,7 @@ showhelp(struct splayer *pplayer, char *buf)
 #ifdef TESTHELP
 							printf("%s", outbuf);
 #else
-							log_msg(outbuf);
+							logmsg(outbuf);
 #endif
 						}
 						break;
@@ -215,7 +215,7 @@ showhelp(struct splayer *pplayer, char *buf)
 #ifdef TESTHELP
 				printf("%s", outbuf);
 #else
-				log_msg(outbuf);
+				logmsg(outbuf);
 #endif
 			}
 			break;

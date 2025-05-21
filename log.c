@@ -42,80 +42,59 @@
 
 */
 
+#include <assert.h>
+#include <err.h>
+
+#include "log.h"
 #include "lorien.h"
 #include "platform.h"
 
-static FILE *fpLOG = (FILE *)0;
-
-/** Get time of day **/
-char *
-timeset()
+void
+log_error(const char *prefix, int err, const char *file, int lineno)
 {
-	time_t buf;
-	char *sp, *cp;
+	char logbuf[OBUFSIZE];
 
-	/* Get system time */
-	time(&buf);
+	if (err == 0)
+		return;
 
-	/* Pass system time to converter */
-	sp = ctime(&buf);
-
-	/* Eat newline character */
-	for (cp = sp; *cp; cp++)
-		if (*cp == '\n') {
-			*cp = '\0';
-			break;
-		}
-	return (sp);
+	(void)snprintf(logbuf, sizeof(logbuf), "%s: %s", prefix, strerror(err));
+	log_msg(logbuf, file, lineno);
 }
 
-int
-log_msg(char *what)
+void
+log_msg(const char *what, const char *file, int line)
 {
 	char logbuf[OBUFSIZE];
 	char *buf;
+	int bufsz = sizeof(logbuf);
+	time_t tim = time(NULL);
 
-#ifndef LOG
-	return 0;
-#endif
+	buf = ctime_r(&tim, logbuf);
+	buf = strchr(buf, '\n');
+	if (!buf)
+		buf = strchr(buf, '\0');
+	assert(buf);
 
-	strncpy(logbuf, what, sizeof(logbuf));
-	logbuf[OBUFSIZE - 1] = (char)0;
-	buf = logbuf;
+	bufsz -= strnlen(logbuf, bufsz);
+	snprintf(buf, bufsz, " [%s:%d] %s", file, line, what);
 
-	/* remove unwanted characters \r and \n for now */
-
-	if ((buf = (char *)strchr(what, '\r')) != (char *)0)
-		*buf = '\000';
-	if ((buf = (char *)strchr(what, '\n')) != (char *)0)
-		*buf = '\000';
-
-	/* do we have the file open yet? */
-
-	if (fpLOG == NULL)
-		fpLOG = fopen(LOGFILE, "a"); /* Creel */
-
-	/* dump it out saying who we are */
-
-	fprintf(fpLOG, "lorien: %s %s\n", timeset(), logbuf);
-	fflush(fpLOG);
-
-	return 0;
+	fprintf(stderr, "%s\n", logbuf);
+	fflush(stderr);
 }
 
 int
 purgelog(struct splayer *pplayer)
 {
-#ifndef LOG
-	return 1;
-#endif
+	char buf[OBUFSIZE];
 
-	fflush(fpLOG);
-	fclose(fpLOG);
-	fpLOG = fopen(LOGFILE, "w");
-	fprintf(fpLOG, "lorien: %s %s purged the log.\n", timeset(),
-	    pplayer->name);
-	fflush(fpLOG);
+	fflush(stderr);
+	fclose(stderr);
+	stderr = freopen(LOGFILE, "w", stderr);
+	err_set_file(stderr);
+
+	snprintf(buf, sizeof(buf), "%s purged the log", pplayer->name);
+	logmsg(buf);
+	fflush(stderr);
 
 	return 1;
 }
