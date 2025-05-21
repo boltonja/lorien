@@ -56,7 +56,6 @@
 #include "board.h"
 #include "lorien.h"
 #include "msg.h"
-#include "newplayer.h"
 #include "parse.h"
 #include "platform.h"
 #ifdef TESTMSG

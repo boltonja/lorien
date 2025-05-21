@@ -31,11 +31,17 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lorien.h"
-#include "newplayer.h"
+#include <sys/types.h>
+
+extern char *sendbuf;
+extern char *recvbuf;
+extern const size_t sendbufsz;
+extern const size_t recvbufsz;
 
 #define logerror(s, e) log_error(s, e, __FILE__, __LINE__)
 #define logmsg(s)      log_msg(s, __FILE__, __LINE__)
+
+void log_alloc_buffers(void);
 void log_error(const char *prefix, int err, const char *file, int lineno);
 void log_msg(const char *what, const char *file, int line);
-int purgelog(struct splayer *pplayer);
+int purgelog(const char *who);

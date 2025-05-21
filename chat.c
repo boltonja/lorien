@@ -56,23 +56,12 @@
 #include "servsock_ssl.h"
 #include "utility.h"
 
-struct servsock_handle *handle = NULL;	  /* non-ssl listener */
-struct servsock_handle *sslhandle = NULL; /* ssl listener */
-char *logfile = LOGFILE;
-
 int
 doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 {
 	fd_set needread; /* for seeing which fds we need to read from */
 	int num;	 /* the number of needy fds */
 	int max;	 /* The highest fd we are using. */
-
-	sendbuf = malloc(sendbufsz);
-	if (!sendbuf)
-		err(EX_UNAVAILABLE, "cannot allocate sendbuf");
-	recvbuf = malloc(recvbufsz);
-	if (!recvbuf)
-		err(EX_UNAVAILABLE, "cannot allocate recvbuf");
 
 	initplayerstruct();
 

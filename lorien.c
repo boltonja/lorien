@@ -64,12 +64,14 @@ static int sslport = 0;
 
 static struct servsock_handle *handle;
 static struct servsock_handle *sslhandle;
-static char *logfile = NULL;
+char *logfile = NULL;
 
 int
 main(int argc, char **argv)
 {
 	lorien_boot_time = time((time_t *)NULL);
+
+	log_alloc_buffers();
 
 	handleargs(argc - 1, argv + 1);
 
@@ -134,7 +136,7 @@ handleargs(int argc, char **argv)
 
 	printf("starting lorien on port %d/+%d.\n", port, sslport);
 
-	if (gethostname(sendbuf, sizeof(sendbuf)) == -1) {
+	if (gethostname(sendbuf, sendbufsz) == -1) {
 		fprintf(stderr, "lorien: Error getting hostname!\n");
 		exit(2);
 	}

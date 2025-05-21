@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include "ban.h"
-#include "lorien.h"
+#include "log.h"
 #include "newplayer.h"
 #include "parse.h"
 #include "platform.h"

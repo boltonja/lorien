@@ -35,10 +35,6 @@
 #include "parse.h"
 #include "platform.h"
 
-extern char *sendbuf;
-extern char *recvbuf;
-extern const size_t sendbufsz;
-extern const size_t recvbufsz;
 extern struct splayer *players;
 extern chan *channels;
 extern int numconnect;

@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "commands.h"
+#include "log.h"
 #include "lorien.h"
 #include "newplayer.h"
 #include "parse.h"

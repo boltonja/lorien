@@ -44,29 +44,48 @@
 
 #include <assert.h>
 #include <err.h>
+#include <sysexits.h>
 
 #include "log.h"
 #include "lorien.h"
 #include "platform.h"
 
+char *sendbuf;
+char *recvbuf;
+static char *logbuf;
+const size_t sendbufsz = BUFSIZE;
+const size_t recvbufsz = BUFSIZE;
+const size_t logbufsz = BUFSIZE;
+
+void
+log_alloc_buffers(void)
+{
+	sendbuf = malloc(sendbufsz);
+	if (!sendbuf)
+		err(EX_UNAVAILABLE, "cannot allocate sendbuf");
+	recvbuf = malloc(recvbufsz);
+	if (!recvbuf)
+		err(EX_UNAVAILABLE, "cannot allocate recvbuf");
+	logbuf = malloc(logbufsz);
+	if (!logbuf)
+		err(EX_UNAVAILABLE, "cannot allocate logbuf");
+}
+
 void
 log_error(const char *prefix, int err, const char *file, int lineno)
 {
-	char logbuf[OBUFSIZE];
-
 	if (err == 0)
 		return;
 
-	(void)snprintf(logbuf, sizeof(logbuf), "%s: %s", prefix, strerror(err));
+	(void)snprintf(logbuf, logbufsz, "%s: %s", prefix, strerror(err));
 	log_msg(logbuf, file, lineno);
 }
 
 void
 log_msg(const char *what, const char *file, int line)
 {
-	char logbuf[OBUFSIZE];
 	char *buf;
-	int bufsz = sizeof(logbuf);
+	int bufsz = logbufsz;
 	time_t tim = time(NULL);
 
 	buf = ctime_r(&tim, logbuf);
@@ -83,17 +102,15 @@ log_msg(const char *what, const char *file, int line)
 }
 
 int
-purgelog(struct splayer *pplayer)
+purgelog(const char *who)
 {
-	char buf[OBUFSIZE];
-
 	fflush(stderr);
 	fclose(stderr);
 	stderr = freopen(LOGFILE, "w", stderr);
 	err_set_file(stderr);
 
-	snprintf(buf, sizeof(buf), "%s purged the log", pplayer->name);
-	logmsg(buf);
+	snprintf(logbuf, logbufsz, "%s purged the log", who);
+	logmsg(logbuf);
 	fflush(stderr);
 
 	return 1;

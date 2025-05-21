@@ -41,7 +41,6 @@
 #include "ban.h"
 #include "log.h"
 #include "lorien.h"
-#include "newplayer.h"
 #include "platform.h"
 #include "servsock_ssl.h"
 #include "utility.h"
@@ -141,7 +140,7 @@ getsock_ssl(char *address, int port, bool use_ssl)
 	setsockopt(ssh->sock, p_proto, SO_REUSEADDR, &so_true, sizeof(so_true));
 	setsockopt(ssh->sock, p_proto, SO_REUSEPORT, &so_true, sizeof(so_true));
 #endif
-	
+
 	/* set up socket address */
 	memcpy((char *)&(saddr.sin_addr), (char *)&tmpaddr,
 	    sizeof(struct in_addr));
@@ -151,7 +150,7 @@ getsock_ssl(char *address, int port, bool use_ssl)
 
 	/* attempt to bind the socket to our address */
 	if (bind(ssh->sock, (struct sockaddr *)&saddr,
-		 sizeof(struct sockaddr_in)) == -1)
+		sizeof(struct sockaddr_in)) == -1)
 		err(EX_CANTCREAT, "Unable to bind port %d", port);
 
 	if (listen(ssh->sock, 5) == -1)

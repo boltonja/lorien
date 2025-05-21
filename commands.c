@@ -386,11 +386,10 @@ add_board(struct splayer *pplayer, char *buf)
 	rc = board_add(n, pplayer->name, d, LDB_BOARD_BULLETIN,
 	    time((time_t *)NULL), true);
 	if (!rc)
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> added board |%s| desc |%s|\r\n", n, d);
 	else
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> couldn't add board %s\r\n", n);
+		snprintf(sendbuf, sendbufsz, ">> couldn't add board %s\r\n", n);
 
 	sendtoplayer(pplayer, sendbuf);
 
@@ -404,19 +403,17 @@ delete_board(struct splayer *pplayer, char *buf)
 
 	switch (rc) {
 	case 0:
-		snprintf(sendbuf, sizeof(sendbuf), ">> removed board |%s|\r\n",
-		    n);
+		snprintf(sendbuf, sendbufsz, ">> removed board |%s|\r\n", n);
 		break;
 	case BOARDERR_NOTEMPTY:
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> board |%s| is not empty\r\n", n);
+		snprintf(sendbuf, sendbufsz, ">> board |%s| is not empty\r\n",
+		    n);
 		break;
 	case BOARDERR_NOTFOUND:
-		snprintf(sendbuf, sizeof(sendbuf),
-		    ">> board |%s| not found\r\n", n);
+		snprintf(sendbuf, sendbufsz, ">> board |%s| not found\r\n", n);
 		break;
 	default:
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> board |%s| unknown error %d\r\n", n, rc);
 	}
 

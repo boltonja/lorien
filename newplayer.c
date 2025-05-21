@@ -88,11 +88,6 @@ char *player_privs_names[16] = {
 	NULL,
 };
 
-char *sendbuf;
-char *recvbuf;
-const size_t sendbufsz = BUFSIZE;
-const size_t recvbufsz = BUFSIZE;
-
 void
 player_removegag(struct splayer *pplayer, struct splayer *target)
 {
@@ -516,9 +511,6 @@ handleinput(fd_set needread)
 	tplayer = players->next;
 
 	while (tplayer != (struct splayer *)0) {
-		int pbsz = sizeof(tplayer->pbuf);
-		int pblen;
-
 		pplayer = tplayer;
 		tplayer = pplayer->next;
 

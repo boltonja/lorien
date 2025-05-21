@@ -97,17 +97,17 @@ lint:
 $(BINARY): $(OBJ) $(MAIN)
 	$(CC) $(FLAGS) -o $(BINARY) $(OBJ) $(LIBS) $(MAIN)
 
-testhelp: help.c
+testhelp: help.c $(OBJ)
 	$(CC) -DTESTHELP $(DEBUG) $(FLAGS) -o testhelp help.c $(LIBS)
 
-testtrie: trie.c trie.h
+testtrie: trie.c trie.h $(OBJ)
 	$(CC) -DTESTTRIE $(DEBUG) $(FLAGS) -o testtrie trie.c $(LIBS)
 
-testboard: board.c board.h db.o
-	$(CC) -DTESTBOARD $(DEBUG) $(FLAGS) -o testboard board.c db.o $(LIBS)
+testboard: board.c board.h db.o $(OBJ)
+	$(CC) -DTESTBOARD $(DEBUG) $(FLAGS) -o testboard board.c db.o log.o $(LIBS)
 
-testmsg: msg.c msg.h board.h db.o board.o trie.o
-	$(CC) -DTESTMSG $(DEBUG) $(FLAGS) -o testmsg msg.c board.o db.o trie.o $(LIBS)
+testmsg: msg.c msg.h board.h db.o board.o trie.o $(OBJ)
+	$(CC) -DTESTMSG $(DEBUG) $(FLAGS) -o testmsg msg.c board.o db.o log.o trie.o $(LIBS)
 
 dbtool: db.h lorien.h dbtool.c $(OBJ)
 	$(CC) $(DEBUG) $(FLAGS) -o dbtool dbtool.c $(OBJ) $(LIBS)

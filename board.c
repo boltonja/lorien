@@ -38,6 +38,7 @@
 #include <stdbool.h>
 
 #include "board.h"
+#include "log.h"
 #include "lorien.h"
 #include "newplayer.h"
 #include "parse.h"
@@ -149,7 +150,7 @@ board_list(struct splayer *who)
 	struct board *curr = NULL;
 	char *nl;
 
-	snprintf(sendbuf, sizeof(sendbuf), ">> Bulletin Boards:\r\n");
+	snprintf(sendbuf, sendbufsz, ">> Bulletin Boards:\r\n");
 	sendtoplayer(who, sendbuf);
 
 	SLIST_FOREACH(curr, &boardhead, entries) {
@@ -157,7 +158,7 @@ board_list(struct splayer *who)
 		nl = index(timbuf, '\n');
 		if (nl)
 			*nl = (char)0;
-		snprintf(sendbuf, sizeof(sendbuf),
+		snprintf(sendbuf, sendbufsz,
 		    ">> Board: %s\r\n>>   Created: %s\r\n>>   Owner: %s\r\n"
 		    ">>   Description: %s\r\n",
 		    curr->name, timbuf, curr->owner, curr->desc);

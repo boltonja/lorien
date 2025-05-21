@@ -33,6 +33,8 @@
 
 /* security.h ---  */
 
+#include "parse.h"
+
 int ckpasswd(const char *authstr, const char *guess);
 int generate_sha512_salt(char *buf, size_t sz);
 int hashpass(char *out, size_t sz, const char *key, const char *salt);
