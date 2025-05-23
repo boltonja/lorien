@@ -66,7 +66,7 @@ parse_error
 haven_shutdown(struct splayer *pplayer)
 {
 	snprintf(sendbuf, sendbufsz,
-	    "Shutting down to shut down command by %s from %s.\n",
+	    "Shutting down to shut down command by %s from %s.",
 	    pplayer->name, pplayer->host);
 	logmsg(sendbuf);
 	snprintf(sendbuf, sendbufsz,

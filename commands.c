@@ -2116,7 +2116,7 @@ handlecommand(struct splayer *pplayer, char *command)
 			    default_parse_table);
 			if (!parser_init_context(&default_parser_context,
 				default_parse_table, commands, false)) {
-				logmsg("can't allocate parse context\n");
+				logmsg("can't allocate parse context");
 				exit(ENOMEM);
 			}
 			main_parser_context = &default_parser_context;

@@ -151,7 +151,7 @@ chan *curr;
 
 	if (curr->visited) {
 		logmsg(
-		    "checkchannels():  found circular link in channel list.\n");
+		    "checkchannels():  found circular link in channel list.");
 		return 0;
 	}
 
@@ -328,6 +328,7 @@ newplayer(struct servsock_handle *ssh)
 		    ">> Unable to allocate memory for player record.\r\n");
 		(void)outtosock_ssl(h, sendbuf);
 		(void)closesock_ssl(h);
+		*(strchr(sendbuf, '\r')) = (char) 0;
 		logmsg(sendbuf);
 
 		errno = ENOMEM;
@@ -342,7 +343,7 @@ newplayer(struct servsock_handle *ssh)
 	playerinit(buf, tmptime, players->host, players->numhost);
 	buf->h = h;
 
-	snprintf(sendbuf, sendbufsz, "Someone came on from %s on line %d\n",
+	snprintf(sendbuf, sendbufsz, "Someone came on from %s on line %d",
 	    buf->host, buf->h->sock);
 	logmsg(sendbuf);
 
@@ -442,7 +443,7 @@ processinput(struct splayer *pplayer)
 		myptr = (char *)0;
 
 		if (!(pplayer->privs & CANPLAY)) {
-			snprintf(buf, sizeof(buf), "spammer %s: %s\n",
+			snprintf(buf, sizeof(buf), "spammer %s: %s",
 			    pplayer->host, line);
 			handlecommand(pplayer, line);
 			if (!(pplayer->privs & CANPLAY))
@@ -515,9 +516,6 @@ handleinput(fd_set needread)
 		tplayer = pplayer->next;
 
 		if (PLAYER_HAS(LEAVING, pplayer)) {
-			snprintf(sendbuf, sendbufsz, "player %s(%d) left",
-			    pplayer->name, pplayer->h->sock);
-			logmsg(sendbuf);
 			removeplayer(pplayer);
 			continue;
 		}
@@ -529,20 +527,12 @@ handleinput(fd_set needread)
 			inbytes = recvfromplayer(pplayer);
 
 			if (inbytes == -1) {
-				snprintf(sendbuf, sendbufsz,
-				    "player %s(%d) left", pplayer->name,
-				    pplayer->h->sock);
-				logmsg(sendbuf);
 				removeplayer(pplayer);
 				continue;
 			}
 
 			defrag(pplayer, inbytes, recvbuf, recvbufsz);
 			if (PLAYER_HAS(LEAVING, pplayer)) {
-				snprintf(sendbuf, sendbufsz,
-				    "player %s(%d) left", pplayer->name,
-				    pplayer->h->sock);
-				logmsg(sendbuf);
 				removeplayer(pplayer);
 				break;
 			}
@@ -562,6 +552,10 @@ removeplayer(struct splayer *player)
 		/* NULL */; /* can happen if player has not set name yet and is
 			       in limbo */
 	}
+
+	snprintf(sendbuf, sendbufsz, "player %s(%d) from %s left",
+		 player->name, player_getline(player), player->host);
+	logmsg(sendbuf);
 
 	snprintf(sendbuf, sendbufsz, ">> line %d(%s) just left.\r\n",
 	    player_getline(player), player->name);

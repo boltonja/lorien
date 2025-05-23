@@ -35,6 +35,7 @@
 
 #include <assert.h>
 #include <err.h>
+#include <sys/time.h>
 #include <sysexits.h>
 #include <unistd.h>
 
@@ -306,6 +307,8 @@ int
 infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size)
 {
 	int numchars, rc;
+	struct itimerval it_one_millisecond = { { 0, 0 }, { 0, 1000 } };
+	struct itimerval it_disabled = { 0 };
 
 	if (ssh->ssl) {
 		int rc;
@@ -317,9 +320,11 @@ infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size)
 			logerror("sigaction (SIGALRM) failed", errno);
 
 		ERR_clear_error();
-		alarm(1);
+		rc = setitimer(ITIMER_REAL, &it_one_millisecond, NULL);
+		assert(!rc);
 		numchars = SSL_read(ssh->ssl, buffer, size - 1);
-		alarm(0);
+		rc = setitimer(ITIMER_REAL, &it_disabled, NULL);
+		assert(!rc);
 
 		rc = sigaction(SIGALRM, &oldaction, &newaction);
 		if (rc != 0)
@@ -337,18 +342,33 @@ infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size)
 		}
 	} else {
 		numchars = recv(ssh->sock, buffer, size - 1, MSG_DONTWAIT);
-		if (numchars < 0) {
-			rc = errno;
-			if (rc == EAGAIN)
-				numchars = 0;
-			else {
-				logerror("receive failed", rc);
-				errno = rc;
-				return -1;
-			}
+
+		if (numchars > 0)
+			goto out;
+
+		rc = errno;
+		if (numchars == 0) {
+			/* connection was closed by remote end */
+			logerror("connection closed", ECONNRESET);
+			errno = ECONNRESET;
+			return -1;
 		}
+
+		numchars = 0;
+		if (rc == EINTR)  {
+			logmsg("recv interrupted");
+			goto out;
+		}
+
+		if ((rc == EAGAIN) || (rc == EWOULDBLOCK))
+			goto out;
+
+		logerror("receive failed", rc);
+		errno = rc;
+		return -1;
 	}
 
+out:
 	buffer[numchars] = (char)0;
 
 	errno = 0;

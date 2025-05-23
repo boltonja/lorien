@@ -64,7 +64,7 @@ static int sslport = 0;
 
 static struct servsock_handle *handle;
 static struct servsock_handle *sslhandle;
-char *logfile = NULL;
+char *logfile = LOGFILE;
 
 int
 main(int argc, char **argv)
@@ -159,12 +159,10 @@ handleargs(int argc, char **argv)
 		printf("Socket established on port +%d.\n", sslport);
 	}
 
-	if (logfile) {
-		printf("redirecting stderr to %s\n", logfile);
-		if (freopen(logfile, "a", stderr) == NULL)
-			err(EX_OSERR, "unable to open logfile %s", logfile);
-		err_set_file(stderr);
-	}
+	printf("redirecting stderr to %s\n", logfile);
+	if (freopen(logfile, "a", stderr) == NULL)
+		err(EX_OSERR, "unable to open logfile %s", logfile);
+	err_set_file(stderr);
 
 #ifndef _MSC_VER
 	if (fdaemon) {
