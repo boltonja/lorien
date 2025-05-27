@@ -107,7 +107,7 @@ settablesize(size_t size)
 	fd_set fds;
 	int max;
 
-	max = setfds(&fds);
+	max = setfds(&fds, false);
 
 	if (size < max)
 		size = max;

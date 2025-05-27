@@ -226,7 +226,8 @@ mask2string32(int mask, int validbits, char *buffer, size_t buflen,
 }
 
 char *
-mask2string(int mask, char *buffer, char **strings, char *separator)
+mask2string(int mask, char *buffer, size_t buflen, char **strings,
+    char *separator)
 {
 	int bit;
 
@@ -236,13 +237,14 @@ mask2string(int mask, char *buffer, char **strings, char *separator)
 		while (bit <= 8) {
 			if ((1 << bit) & mask) {
 				if (*buffer)
-					(void)strcat(buffer, separator);
-				(void)strcat(buffer, strings[bit]);
+					(void)strlcat(buffer, separator,
+					    buflen);
+				(void)strlcat(buffer, strings[bit], buflen);
 			}
 			bit++;
 		}
 	else
-		strcat(buffer, strings[0]);
+		strlcat(buffer, strings[0], buflen);
 	return buffer;
 }
 

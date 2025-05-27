@@ -106,9 +106,7 @@ IV.  Installation.
 PRE-REQUISITES:
 
 Lorien requires lmdb (http://www.lmdb.tech/doc/starting.html). You may
-be able to install a package with your system's package manager. You
-may also need to add, e.g. "-I/usr/local/include" to your CFLAGS and
-"-L/usr/local/lib" to your LIBS in the Makefile.
+be able to install a package with your system's package manager.
 
 For Linux, libbsd-dev and libssl-dev are also required.
 
@@ -117,7 +115,8 @@ Lorien is known to build on the following systems:
        FreeBSD 14.1-RELEASE
        OpenBSD 7.5
        NetBSD 10.0
-       OpenIndiana
+       OpenIndiana (with openssl 3.5.0 or later installed in /usr/local)
+       OpenIndiana (with libressl 4.1.0 or later installed in /usr/local)
        macOS Sequoia
        Haiku OS R1/beta5
        Microsoft Windows 11 (via MSYS2 on x64 and arm64)
@@ -129,42 +128,36 @@ Edition) and a port of lmdb to attempt building. The MSYS2 port is
 only tested with the x64 toolchain, as this runs well enough on
 Windows-on-Arm.
 
-On many systems, simply cd into the Lorien directory and type:
-
+FreeBSD:
+       pkg install lmdb libiconv
        make
 
-For FreeBSD:
+Ubuntu or Debian:
+       apt install libbsd-dev libssl-dev liblmdb-dev
+       make
 
-       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto"
+OpenSolaris-derived systems (Illumos, eg. OpenIndiana):
+       pkg install lmdb
+       make
 
-For Ubuntu or Debian:
+macOS with HomeBrew:
+       brew install lmdb
+       make
 
-       make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lbsd -lssl -lcrypto"
-
-For OpenSolaris-derived systems (Illumos, eg. OpenIndiana) you will want:
-
-       make -k CC=gcc LIBS="-lc -llmdb -lnsl -lsocket -lssl -lcrypto" \
-            CFLAGS="-D_POSIX_PTHREAD_SEMANTICS"
-
-For macOS with HomeBrew:
-
-       make LIBS="-L/opt/homebrew/lib -lc -llmdb -ssl -lcrypto" \
-            CFLAGS="-I/opt/homebrew/include"
-
-For NetBSD:
-
+NetBSD:
+       pkgin install lmdb
        export LD_LIBRARY_PATH=/usr/pkg/lib:/lib:/usr/lib:/usr/local/lib
-       make CFLAGS="-I/usr/pkg/include" \
-            LIBS="-L/usr/pkg/lib -lc -llmdb -ssl -lcrypto"
+       make
 
-For OpenBSD:
-       make LIBS="-L/usr/local/lib -lc -llmdb -ssl -lcrypto" 
+OpenBSD:
+       pkg_add lmdb
+       make
 
-For Windows with MSYS2:
+Windows with MSYS2:
        pacman -Ss mingw-w64-x86_64-lmdb libbsd mingw-w64-x86_64-libressl
-       make CFLAGS="-I/mingw64/include" LIBS="-L/mingw64/lib -llmdb -ssl -lcrypto"
+       make
 
-For Haiku:
+Haiku:
        #### WARNING: the default Haiku user runs with root privileges
        ####          so you probably don't want to do this unless Haiku
        ####          is your development environment
@@ -174,18 +167,19 @@ For Haiku:
        # ifconfig | grep 'inet addr' | grep -v '127.0.0.1'| \
        # awk '{print $3}' | sed 's/,//'| xargs echo `hostname` | \
        # awk '{print $2 " " $1}' >> /boot/system/settings/network/hosts
-       ### you MUST install the lmdb package from HaikuDepot but it does
-       ### not include <lmdb.h> so you MUST also clone the lmdb repo to
-       ### to provide the header file
+       ### you MUST install the lmdb and libiconv packages from HaikuDepot
+       ### but they are missing header files so you MUST also clone the 
+       ### lmdb repo and libiconv tarball to provide the header file
+       # assuming your current working dir is the lorien folder:
        pushd $HOME
        git clone https://github.com/LMDB/lmdb
+       wget https://ftp.gnu.org/gnu/libiconv/libiconv-1.17.tar.gz
+       tar zxf libiconv-1.17.tar.gz
+       cd libiconv-1.17
+       ./configure
+       make
        popd
-       ### Haiku doesn't seem to have libssp_nonshared so we need
-       ### to disable stack smash protection
-       sed -i "s/-fstack-protector-all//g" Makefile
-       ### Finally we can build lorien
-       make CFLAGS="-I/boot/home/lmdb/libraries/liblmdb" \
-       LIBS="-llmdb -lcrypto -lnetwork -ssl -lbsd"
+       make
 
 You probably also want to create a file called lorien.welcome, which
 is an (ostensibly) text file that is displayed to each new connection.

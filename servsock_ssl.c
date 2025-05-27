@@ -31,11 +31,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/time.h>
+
 #include <netinet/tcp.h>
 
 #include <assert.h>
 #include <err.h>
-#include <sys/time.h>
 #include <sysexits.h>
 #include <unistd.h>
 
@@ -79,7 +80,7 @@ decode_ssl_error(struct servsock_handle *ssh, int code)
 	case SSL_ERROR_SYSCALL:
 	case SSL_ERROR_SSL:
 		ssh->no_shutdown = true;
-		err = ENOLINK;
+		err = ENOTCONN;
 		break;
 	default:
 		err = EPROTO;
@@ -266,9 +267,9 @@ acceptcon_ssl(struct servsock_handle *ssh, char *from, int len, char *from2,
 	} else {
 		buf = tmphost->h_name;
 		if (buf != (char *)0) {
-			(void)strncpy(from, buf, len);
+			(void)strlcpy(from, buf, len);
 		} else
-			(void)strcpy(from, from2);
+			(void)strlcpy(from, from2, len);
 	}
 	from[len - 1] = (char)0;
 	if (ban_findsite(from2) || ban_findsite(from)) {
@@ -355,7 +356,7 @@ infromsock_ssl(struct servsock_handle *ssh, char *buffer, int size)
 		}
 
 		numchars = 0;
-		if (rc == EINTR)  {
+		if (rc == EINTR) {
 			logmsg("recv interrupted");
 			goto out;
 		}

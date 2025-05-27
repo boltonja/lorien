@@ -71,7 +71,7 @@ log_alloc_buffers(void)
 		err(EX_UNAVAILABLE, "cannot allocate logbuf");
 }
 
-static char errbuf[logbufsz];
+static char errbuf[BUFSIZE];
 
 void
 log_error(const char *prefix, int err, const char *file, int lineno)
@@ -108,7 +108,13 @@ purgelog(const char *who)
 {
 	fflush(stderr);
 	fclose(stderr);
+
+#if defined(__OpenBSD__) || defined(__illumos__) || defined(__NetBSD__)
+	freopen(LOGFILE, "w", stderr);
+#else
 	stderr = freopen(LOGFILE, "w", stderr);
+#endif
+
 	err_set_file(stderr);
 
 	snprintf(logbuf, logbufsz, "%s purged the log", who);

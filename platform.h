@@ -31,6 +31,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __PLATFORM_H__
+#define __PLATFORM_H__ 1
+
 #if defined(__APPLE__)
 #include <arpa/inet.h>
 #define htobe64(x) htonll(x)
@@ -63,11 +66,6 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef __illumos__
-#define EVP_MD_CTX_new()   EVP_MD_CTX_create()
-#define EVP_MD_CTX_free(p) EVP_MD_CTX_destroy(p)
-#endif
-
 #ifndef _MSC_VER
 #include <sys/resource.h>
 #include <sys/select.h>
@@ -77,11 +75,32 @@
 #include <netinet/in.h>
 
 #include <arpa/inet.h>
+#include <err.h>
 #include <netdb.h>
+#include <sysexits.h>
 #include <unistd.h>
+
 #else
 #include <io.h>
 #include <winsock2.h>
 #pragma comment(lib, "Ws2_32.lib")
 #define alarm(a) /* */
+#endif
+
+#if !defined(__FreeBSD__) && !defined(__HAIKU__)
+static inline void
+err_set_file(void *fptr)
+{
+	FILE *buf = fptr;
+	int fd = fileno(buf);
+	int rc;
+
+	if (fd != 2) {
+		close(2);
+		rc = dup2(fd, 2);
+		if (rc != 2)
+			err(EX_OSERR, "dup2() failed");
+	}
+}
+#endif
 #endif

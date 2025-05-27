@@ -349,8 +349,6 @@ main(int argc, char *argv[])
 	struct servsock_handle ssh = { 0 };
 
 	printf("argc %d\n", argc);
-	initplayerstruct();
-	players->h = &ssh;
 	ssh.sock = 1; /* stdout */
 
 	if (argc < 2) {

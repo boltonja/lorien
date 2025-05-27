@@ -44,6 +44,7 @@ Dave Mott          (Energizer Rabbit)
 #define _LORIEN_H_
 
 #include <sys/types.h>
+#include <sys/queue.h>
 #include <sys/select.h>
 
 #include <time.h>
@@ -196,31 +197,15 @@ enum player_privs {
 	"USAGE: lorien [-l file] [-d] [-s sslport] portnumber\n" \
 	"usually just: lorien -d 2525\n"
 
-#define chan struct channel_struct
 extern time_t lorien_boot_time;
 
-struct channel_struct {
-	char name[MAX_CHAN + 1]; /* 11th is null character */
-	char owner[LORIEN_V0174_NAME];
-	char desc[LORIEN_V0178_DESC];
-	time_t created;
-
-	/* stuff that doesn't need to go in the db goes below here */
-
-	int secure;
-	int visited;
-	int count;
-	int persistent;
-	chan *next;
-};
-
 /* types for who list */
-#define ALL	      (chan *)-3
-#define CHANNEL	      (chan *)-1
-#define ARRIVAL	      (chan *)-2
-#define YELL	      (chan *)-4
-#define INFORMATIONAL (chan *)-6
-#define DEPARTURE     (chan *)-5
+#define ALL	      (struct channel *)-3
+#define CHANNEL	      (struct channel *)-1
+#define ARRIVAL	      (struct channel *)-2
+#define YELL	      (struct channel *)-4
+#define INFORMATIONAL (struct channel *)-6
+#define DEPARTURE     (struct channel *)-5
 
 struct splayer {
 	int seclevel; /* how powerful are they? */
@@ -240,8 +225,8 @@ struct splayer {
 	time_t cameon;	   /* last login time */
 	time_t playerwhen; /* creation date */
 	time_t idle;	   /* number of seconds since player did anything */
-	chan *chnl;
-	struct splayer *next, *prev; /* the next player in the linked list */
+	struct channel *chnl;
+	SLIST_ENTRY(splayer) entries;
 	fd_set gags;
 	int spamming;	    /* if the player is probably an e-mail spambot */
 	char pbuf[BUFSIZE]; /* player buffer for accumulating text in char mode
@@ -250,7 +235,5 @@ struct splayer {
 	struct servsock_handle *h;    /* line number is h->sock */
 	int port;		      /* remote port number */
 };
-
-int die(int exitstat);
 
 #endif

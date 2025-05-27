@@ -76,8 +76,8 @@ strcontains(char *string, char *target, int mode)
 	char s[BUFSIZE];
 	char t[BUFSIZE];
 
-	strcpy(s, string);
-	strcpy(t, target);
+	strlcpy(s, string, sizeof(s));
+	strlcpy(t, target, sizeof(t));
 
 	strupcase(s);
 	strupcase(t);
@@ -115,9 +115,9 @@ showhelp(struct splayer *pplayer, char *buf)
 		buf++;
 
 	if (strlen(buf))
-		strcpy(target, buf);
+		strlcpy(target, buf, sizeof(target));
 	else
-		strcpy(target, "section");
+		strlcpy(target, "section", sizeof(target));
 
 	rewind(fHelp);
 	while (fgets(ibuf, BUFSIZE, fHelp) != (char *)0) {

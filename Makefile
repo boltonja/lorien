@@ -41,11 +41,6 @@
 # --------------       ----------------------------------------------------
 # DEFAULT_NAME         Picks a default name for new arrivals.
 # DEFCHAN              Picks a name for the main channel.  Max 13 chars.
-# CHECK_CHANNELS       If it core dumps in the channel code, define this.
-# FIXCHANNELS          If it core dumps in the channel code, define this.
-# LOG                  By default, logging is turned on.
-# NO_LOG_CONNECT       By default, arrivals and departures are not logged.
-# NO_NUMBER_CHANNELS   To disallow numeric channel names.  Default: allowed.
 # ONFROM_ANY           If defined, anyone can change host info.
 # USE_CONFIG_H         If you can't use DEFAULT_NAME and DEFCHAN in the
 #                      makefile because your shell doesn't allow it, define
@@ -54,7 +49,7 @@
 #
 # EDIT THIS LINE FOR OPTIONS.
 #
-OPTS= -DLOG -DNO_LOG_CONNECT -DUSE_CONFIG_H -DONFROM_ANY
+OPTS= -DUSE_CONFIG_H -DONFROM_ANY
 #
 # Don't mess with these unless you have good reason to.
 # Keep reading however because the LIBS and DEFS may need to be changed below.
@@ -64,13 +59,13 @@ DOC=LICENSE README CHANGELOG aprilfools.commands lorien.commands lorien.help lor
 
 MAK=.clang-format CMakeLists.txt Makefile
 
-HDR= ban.h board.h chat.h commands.h config.h db.h files.h help.h log.h lorien.h msg.h newplayer.h parse.h platform.h security.h servsock_ssl.h trie.h utility.h
+HDR= ban.h board.h channel.h chat.h commands.h config.h db.h files.h help.h log.h lorien.h msg.h newplayer.h parse.h platform.h security.h servsock_ssl.h trie.h utility.h
 
-SRC= ban.c board.c chat.c commands.c db.c files.c help.c dbtool.c  log.c lorien.c msg.c newplayer.c parse.c security.c servsock_ssl.c trie.c utility.c
+SRC= ban.c board.c channel.c chat.c commands.c db.c files.c help.c dbtool.c  log.c lorien.c msg.c newplayer.c parse.c security.c servsock_ssl.c trie.c utility.c
 
 MAIN= lorien.o
 
-OBJ= ban.o board.o chat.o commands.o db.o files.o help.o log.o msg.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
+OBJ= ban.o board.o channel.o chat.o commands.o db.o files.o help.o log.o msg.o newplayer.o parse.o security.o servsock_ssl.o trie.o utility.o
 
 # Illumos (e.g., OpenIndiana) needs additionally: -lnsl -lsocket
 LIBS?=-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto -liconv
@@ -78,13 +73,39 @@ CFLAGS?=-g -ggdb -fstack-protector-all
 
 CC?=gcc
 DEBUG=-g -ggdb
-FLAGS=$(DEBUG) $(CFLAGS) $(OPTS) -fstack-protector-all -Wall -I/usr/local/include
+FLAGS?=$(DEBUG) $(CFLAGS) $(OPTS) -fstack-protector-all -Wall -I/usr/local/include
 BINARY=lorien
 TARGETS=testtrie testhelp testboard testmsg $(BINARY) dbtool
 
-default: $(TARGETS)
+default:
+	make $$(uname -s | awk -F- '{print $$1}')
 
 all: $(TARGETS)
+
+FreeBSD:
+	make -f Makefile LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lssl -lcrypto -liconv" all
+
+OpenBSD:
+	make -f Makefile LIBS="-L/usr/local/lib -lc -llmdb -lcrypto -lssl -liconv" all
+
+NetBSD:
+	export LD_LIBRARY_PATH=/usr/pkg/lib:/lib:/usr/lib:/usr/local/lib
+	make CFLAGS="-I/usr/pkg/include" LIBS="-L/usr/pkg/lib -lc -llmdb -lssl -lcrypto" all
+
+Linux:
+	make -k LIBS="-lc -L /usr/local/lib -llmdb -lcrypt -lbsd -lssl -lcrypto" all
+
+Haiku:
+	make FLAGS="$(DEBUG) $(OPTS) -Wall -I/boot/home/libiconv-1.17/include -I/boot/home/lmdb/libraries/liblmdb" LIBS="-L/boot/system/lib -llmdb -lcrypto -lnetwork -lssl -lbsd /boot/system/lib/libiconv.so.2" all
+
+SunOS:
+	make -k CC=gcc CFLAGS="-g -ggdb -O0 -fstack-protector-all -I/usr/local/include" LIBS="-L/usr/local/lib/64 -L/usr/local/lib -lc -llmdb -lnsl -lsocket -lssl -lcrypto" CFLAGS="-D_POSIX_PTHREAD_SEMANTICS" all
+
+Darwin:
+	make LIBS="-L/opt/homebrew/lib -lc -llmdb -lssl -lcrypto -liconv" CFLAGS="-I/opt/homebrew/include" all
+
+MINGW64_NT:
+	make CFLAGS="-I/mingw64/include" LIBS="-L/mingw64/lib -llmdb -lssl -lcrypto -liconv" all
 
 server: $(BINARY)
 

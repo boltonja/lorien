@@ -1,9 +1,18 @@
 v 1.7.8
+- utf-8 support
+- ssl support, connect ssl with tt++ or openssl s_client -connect host:port
 - Moved ban entries to lorien.db
 - Replaced buggy singly linked ban list with SLIST from queue(3)
+- Replaced player and channel linked list code with SLIST from queue(3)
 - Fixed a bug that could orphan ban list entries and leak memory
-- Removed vestigial persistent channel and bulletin code
 - Removed a password leak in the anti-spam code
+- fix buffer overflow and data loss in defragmentation code
+- fix telnet disconnect bug
+- fix possible corruption of player list when players leave
+- database support (no UI yet) for bulletin boards and messages
+- Removed vestigial check/fix channels code
+- Removed vestigial options (LOG, NO_LOG_CONNECT)
+- Removed vestigial persistent channel and bulletin code
 
 20 Mar 2025 v 1.7.7
 - Database format on media has deterministic endianism

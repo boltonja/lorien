@@ -1,7 +1,7 @@
 /*
  * Copyright 1990-1996 Chris Eleveld
  * Copyright 1992 Robert Slaven
- * Copyright 1992-2024 Jillian Alana Bolton
+ * Copyright 1992-2025 Jillian Alana Bolton
  * Copyright 1992-1995 David P. Mott
  *
  * The BSD 2-Clause License
@@ -31,29 +31,45 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
+/* channel.h - channel capability for Lorien.
+ */
+#ifndef _CHANNEL_H_
+#define _CHANNEL_H_
 
-#ifndef _UTILITY_H_
-#define _UTILITY_H_
+#include <sys/queue.h>
 
-#define BOLD	  1
-#define UNDERLINE 2
-#define BLINK	  3
-#define REVERSE	  4
+#include <stdbool.h>
 
-#define HI_BITS	  0x1E
+#include "db.h"
+#include "parse.h"
 
-extern char *hi_types[];
+struct channel {
+	char name[MAX_CHAN];
+	char owner[LORIEN_V0174_NAME];
+	char desc[LORIEN_V0178_DESC];
+	time_t created;
 
-int construct_mask(char *args, int *mask);
-char *expand_hilite(int mask, char *buffer);
-char *mask2string32(int mask, int validbits, char *buffer, size_t buflen,
-    char **strings, char *separator);
-char *mask2string(int mask, char *buffer, size_t buflen, char **strings,
-    char *separator);
-char *skipdigits(char *buf);
-char *skipspace(char *buf);
-char *trimspace(char *buf, size_t sz);
-char *timelet(time_t idle, long precision);
+	/* stuff that doesn't need to go in the db goes below here */
 
+	bool secure;
+	int refcnt;
+	bool persistent;
+	SLIST_ENTRY(channel) entries;
+};
+
+struct channel *channel_add(const char *name);
+int channel_count(const struct channel *channel);
+void channel_del(struct channel *channel);
+int channel_deref(struct channel *channel);
+struct channel *channel_find(const char *name);
+struct channel *channel_getmain(void);
+char *channel_getname(const struct channel *channel, char *buf, int buflen);
+void channel_init(void);
+parse_error channel_list(struct splayer *splayer);
+void channel_persist(struct channel *channel, bool persists);
+bool channel_persists(const struct channel *channel);
+int channel_ref(struct channel *channel);
+void channel_rename(struct channel *channel, const char *name);
+void channel_secure(struct channel *channel, bool secure);
+bool channel_secured(const struct channel *channel);
 #endif

@@ -31,34 +31,34 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/queue.h>
+
+#include <stdbool.h>
+
 #include "lorien.h"
 #include "parse.h"
 #include "platform.h"
 
-extern struct splayer *players;
-extern chan *channels;
 extern int numconnect;
 
 struct servsock_handle;
 
-chan *findchannel(char *name);
 void handleinput(fd_set needread);
 char *idlet(time_t idle);
 void initplayerstruct(void);
 int isgagged(struct splayer *recipient, struct splayer *sender);
-struct splayer *lookup(int linenum);
-chan *newchannel(char *name);
+parse_error kill_all_players(struct splayer *pplayer, char *buf);
 int newplayer(struct servsock_handle *ssh);
-chan *new_channelp(char *channel);
 int numconnected();
+struct splayer *player_find(const char *name);
+struct splayer *player_lookup(int linenum);
 void playerinit(struct splayer *who, time_t when, char *where, char *numwhere);
 void processinput(struct splayer *pplayer);
 int recvfromplayer(struct splayer *who);
-void remove_channel(chan *channel);
 void removeplayer(struct splayer *player);
-void sendall(char *message, chan *channel, struct splayer *who);
+void sendall(char *message, struct channel *channel, struct splayer *who);
 int sendtoplayer(struct splayer *who, char *message);
-int setfds(fd_set *needread);
+int setfds(fd_set *needread, bool removeplayers);
 int setname(struct splayer *pplayer, char *name); // BUG:set_name() vs
 						  // setname()?
 int welcomeplayer(struct splayer *pplayer);

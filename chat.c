@@ -47,6 +47,7 @@
 
 #include "ban.h"
 #include "board.h"
+#include "channel.h"
 #include "db.h"
 #include "files.h"
 #include "log.h"
@@ -63,8 +64,6 @@ doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 	int num;	 /* the number of needy fds */
 	int max;	 /* The highest fd we are using. */
 
-	initplayerstruct();
-
 	strncpy(lorien_db.dbname, "./lorien.db", sizeof(lorien_db.dbname) - 1);
 	lorien_db.dbname[sizeof(lorien_db.dbname) - 1] = (char)0;
 
@@ -80,6 +79,8 @@ doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 	fprintf(stderr, "read %d bans from database\n", rc);
 	rc = board_read_db();
 	fprintf(stderr, "read %d boards from database\n", rc);
+
+	channel_init();
 
 #ifdef _MSC_VER
 	{
@@ -106,7 +107,7 @@ doit(struct servsock_handle *handle, struct servsock_handle *sslhandle)
 			FD_SET(handle->sock, &needread);
 		if (sslhandle)
 			FD_SET(sslhandle->sock, &needread);
-		max = setfds(&needread);
+		max = setfds(&needread, true);
 		if (handle && (handle->sock > max))
 			max = handle->sock;
 		if (sslhandle && (sslhandle->sock > max))

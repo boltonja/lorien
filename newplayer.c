@@ -43,12 +43,15 @@ Dave Mott          (Energizer Rabbit)
 
 */
 
+#include <sys/queue.h>
+
 #include <assert.h>
 #include <err.h>
 #include <iconv.h>
 #include <sysexits.h>
 
 #include "ban.h"
+#include "channel.h"
 #include "commands.h"
 #include "log.h"
 #include "lorien.h"
@@ -60,8 +63,8 @@ Dave Mott          (Energizer Rabbit)
 #define level(p, w) \
 	((PLAYER_HAS(SHOW, p) || w->seclevel >= p->seclevel) ? p->seclevel : 1)
 
-struct splayer *players; /* the linked list of players records */
-chan *channels;
+SLIST_HEAD(playerlist, splayer) playerhead = SLIST_HEAD_INITIALIZER(playerhead);
+
 int numconnect; /* number of people connected */
 
 char *player_flags_names[16] = { "Showlevel", "Verified", "Whisper Beeps",
@@ -97,181 +100,23 @@ player_removegag(struct splayer *pplayer, struct splayer *target)
 int
 numconnected()
 {
-	int i;
+	int i = 0;
 	struct splayer *curr;
 
-	curr = players->next;
-	i = 0;
-	while (curr) {
-		curr = curr->next;
+	SLIST_FOREACH(curr, &playerhead, entries)
 		i++;
-	}
+
 	return i;
-}
-
-void
-initplayerstruct(void)
-{
-	/* get a place to put our players */
-
-	players = (struct splayer *)malloc(sizeof(struct splayer));
-
-	if (players == (struct splayer *)0) {
-		fprintf(stderr,
-		    "lorien: Unable to allocate memory for players!\n");
-		exit(1);
-	}
-
-	if ((channels = (chan *)malloc(sizeof(chan))) == (chan *)0) {
-		fprintf(stderr,
-		    "lorien: Unable to allocate memory for channels!\n");
-		exit(1);
-	}
-
-	channels->next = (chan *)0;
-	strncpy(channels->name, DEFCHAN, sizeof(channels->name) - 1);
-	channels->name[sizeof(channels->name) - 1] = (char)0;
-	channels->secure = 0;
-	channels->count = 0;
-	channels->visited = 0;
-
-	players->next = (struct splayer *)0;
-	players->prev = (struct splayer *)0;
-}
-
-#ifdef CHECK_CHANNELS
-int
-checkchannels(curr)
-chan *curr;
-{
-	int rc;
-
-	if (!curr)
-		return 1;
-
-	if (curr->visited) {
-		logmsg(
-		    "checkchannels():  found circular link in channel list.");
-		return 0;
-	}
-
-	curr->visited = 1;
-	rc = checkchannels(curr->next);
-#ifdef FIX_CHANNEL_LINKS
-	if (!rc) {
-		curr->next = (chan) * 0;
-		rc = 1;
-	}
-#endif
-	curr->visited = 0;
-	return rc;
-}
-#endif
-
-chan *
-findchannel(char *name)
-{
-	chan *curr;
-
-#ifdef CHECK_CHANNELS
-	if (!checkchannels(channels)) {
-		logmsg("findchannel(): channel list incorrect.");
-		sleep(2);
-		abort(1);
-	}
-#endif
-
-	curr = channels;
-
-	while (curr) {
-		if (!strncmp(curr->name, name, MAX_CHAN))
-			return curr;
-
-		curr = curr->next;
-	}
-
-	return (chan *)0;
-}
-
-chan *
-newchannel(char *name)
-{
-	chan *newchan;
-
-	newchan = (chan *)malloc(sizeof(chan));
-
-	if (!newchan)
-		return newchan;
-
-	newchan->secure = 0;
-	newchan->visited = 0;
-	newchan->persistent = 0;
-	strncpy(newchan->name, name, MAX_CHAN);
-
-	newchan->name[MAX_CHAN] = 0;
-	newchan->next = (chan *)0;
-	newchan->count = 0; /* we wouldn't be building this if someone hadn't
-	requested it. */
-
-	if (channels->next)
-		newchan->next = channels->next;
-	channels->next = newchan;
-
-#ifdef CHECK_CHANNELS
-	if (!checkchannels(channels)) {
-		logmsg("newchannel():  channel list incorrect.");
-		sleep(2);
-		abort(1);
-	}
-#endif
-
-	return newchan;
-}
-
-void
-remove_channel(chan *channel)
-{
-	chan *tmp;
-
-#ifdef CHECK_CHANNELS
-	if (!checkchannels(channels)) {
-		logmsg("remove_channel():  channel list incorrect on entry.");
-		sleep(2);
-		abort(1);
-	}
-#endif
-
-	tmp = channels;
-
-	if ((tmp == channel) || tmp->persistent)
-		return; /* don't remove the main or other persistent channels */
-
-	while (tmp->next) {
-		if (tmp->next == channel) {
-			tmp->next = channel->next;
-			free(channel);
-			break;
-		}
-		tmp = tmp->next;
-	}
-
-#ifdef CHECK_CHANNELS
-	if (!checkchannels(channels)) {
-		logmsg("remove_channel():  channel list incorrect on exit.");
-		sleep(2);
-		abort(1);
-	}
-#endif
 }
 
 void
 playerinit(struct splayer *who, time_t when, char *where, char *numwhere)
 {
-	strcpy(who->onfrom, where);
-	strcpy(who->host, where);
-	strcpy(who->numhost, numwhere);
+	strlcpy(who->onfrom, where, sizeof(who->onfrom));
+	strlcpy(who->host, where, sizeof(who->host));
+	strlcpy(who->numhost, numwhere, sizeof(who->numhost));
 	who->flags = PLAYER_DEFAULT;
-	who->port = players->port;
+	who->port = 0;
 	who->seclevel = BABYCO;
 	who->hilite = 0;
 	who->chnl = NULL;
@@ -280,7 +125,6 @@ playerinit(struct splayer *who, time_t when, char *where, char *numwhere)
 	who->playerwhen = when;
 	who->idle = when;
 	who->cameon = when;
-	who->next = (struct splayer *)0;
 	who->privs = CANDEFAULT;
 	who->dotspeeddial = 0;
 	who->wrap = 80;
@@ -301,12 +145,12 @@ int
 newplayer(struct servsock_handle *ssh)
 {
 	struct servsock_handle *h;
-	struct splayer *buf;
+	struct splayer *buf, tmpbuf = { 0 };
 	time_t tmptime;
 	int err = 0, rc;
 
-	h = acceptcon_ssl(ssh, players->host, sizeof(players->host),
-	    players->numhost, sizeof(players->numhost), &players->port);
+	h = acceptcon_ssl(ssh, tmpbuf.host, sizeof(tmpbuf.host), tmpbuf.numhost,
+	    sizeof(tmpbuf.numhost), &tmpbuf.port);
 	if (!h) {
 		err = errno;
 		logerror("acceptcon_ssl() failed", err);
@@ -314,33 +158,23 @@ newplayer(struct servsock_handle *ssh)
 		return -1;
 	}
 
-	/* find the tail of the linked list of players */
-
-	buf = players;
-	while (buf->next != (struct splayer *)0)
-		buf = buf->next;
-
 	/* create a new player struct(record) */
-	buf->next = (struct splayer *)malloc(sizeof(struct splayer));
+	buf = (struct splayer *)malloc(sizeof(struct splayer));
 
-	if (buf->next == (struct splayer *)0) {
+	if (!buf) {
 		snprintf(sendbuf, sendbufsz,
 		    ">> Unable to allocate memory for player record.\r\n");
 		(void)outtosock_ssl(h, sendbuf);
 		(void)closesock_ssl(h);
-		*(strchr(sendbuf, '\r')) = (char) 0;
+		*(strchr(sendbuf, '\r')) = (char)0;
 		logmsg(sendbuf);
 
 		errno = ENOMEM;
 		return -1;
 	}
 
-	buf->next->next = (struct splayer *)0;
-	buf->next->prev = buf;
-
 	tmptime = time((time_t *)0);
-	buf = buf->next;
-	playerinit(buf, tmptime, players->host, players->numhost);
+	playerinit(buf, tmptime, tmpbuf.host, tmpbuf.numhost);
 	buf->h = h;
 
 	snprintf(sendbuf, sendbufsz, "Someone came on from %s on line %d",
@@ -359,33 +193,18 @@ newplayer(struct servsock_handle *ssh)
 		return -1;
 	}
 
+	SLIST_INSERT_HEAD(&playerhead, buf, entries);
+
 	errno = 0;
 	return player_getline(buf);
 }
 
 void
-resetgags(int line)
+sendall(char *message, struct channel *channel, struct splayer *who)
 {
 	struct splayer *buf;
 
-	buf = players;
-	while (buf->next != (struct splayer *)0) {
-		buf = buf->next;
-
-		FD_CLR(line, &buf->gags);
-	};
-}
-
-void
-sendall(char *message, chan *channel, struct splayer *who)
-{
-	struct splayer *buf, *before;
-
-	buf = players;
-	while (buf->next != (struct splayer *)0) {
-		before = buf;
-		buf = buf->next;
-
+	SLIST_FOREACH(buf, &playerhead, entries) {
 		if (channel == ALL)
 			sendtoplayer(buf, message);
 		else if (channel == INFORMATIONAL) {
@@ -394,37 +213,40 @@ sendall(char *message, chan *channel, struct splayer *who)
 		} else if (channel == ARRIVAL) {
 			if (PLAYER_HAS(MSG, buf))
 				sendtoplayer(buf, message);
+		} else if (channel == YELL) {
+			if (!PLAYER_HAS(HUSH, buf))
+				sendtoplayer(buf, message);
 		} else if (channel == DEPARTURE) {
-			if (buf->h->sock == who->h->sock)
-				before->next = buf->next;
-			else {
-				/* Un-gag the leaving player for the player we
-				 * are processing. */
-				player_removegag(buf, who);
-				if (buf->dotspeeddial == who)
-					buf->dotspeeddial = NULL;
+			/* Un-gag the leaving player for the player we
+			 * are processing. */
+			player_removegag(buf, who);
+			if (buf->dotspeeddial == who)
+				buf->dotspeeddial = NULL;
 
-				if (PLAYER_HAS(MSG, buf))
-					sendtoplayer(buf, message);
-			}
+			if (PLAYER_HAS(MSG, buf))
+				sendtoplayer(buf, message);
 		} else if (buf->chnl == channel)
 			sendtoplayer(buf, message);
 	}
 }
 
 int
-setfds(fd_set *needread)
+setfds(fd_set *needread, bool removeplayers)
 {
-	struct splayer *pplayer;
+	struct splayer *curr;
 	int max = 0;
 
-	pplayer = players;
-	while (pplayer->next != (struct splayer *)0) {
-		pplayer = pplayer->next;
-		if (pplayer->h->sock > max)
-			max = pplayer->h->sock;
-		FD_SET(pplayer->h->sock, needread);
+again:
+	SLIST_FOREACH(curr, &playerhead, entries) {
+		if (removeplayers && PLAYER_HAS(LEAVING, curr)) {
+			removeplayer(curr);
+			goto again;
+		}
+		if (curr->h->sock > max)
+			max = curr->h->sock;
+		FD_SET(curr->h->sock, needread);
 	}
+
 	return max;
 }
 
@@ -506,34 +328,26 @@ void
 handleinput(fd_set needread)
 {
 	struct splayer *pplayer;
-	struct splayer *tplayer;
 	int inbytes;
 
-	tplayer = players->next;
-
-	while (tplayer != (struct splayer *)0) {
-		pplayer = tplayer;
-		tplayer = pplayer->next;
-
-		if (PLAYER_HAS(LEAVING, pplayer)) {
-			removeplayer(pplayer);
-			continue;
-		}
-
+	SLIST_FOREACH(pplayer, &playerhead, entries) {
 		if (!FD_ISSET(pplayer->h->sock, &needread))
+			continue;
+
+		if (PLAYER_HAS(LEAVING, pplayer))
 			continue;
 
 		do {
 			inbytes = recvfromplayer(pplayer);
 
 			if (inbytes == -1) {
-				removeplayer(pplayer);
+				PLAYER_SET(LEAVING, pplayer);
 				continue;
 			}
 
 			defrag(pplayer, inbytes, recvbuf, recvbufsz);
 			if (PLAYER_HAS(LEAVING, pplayer)) {
-				removeplayer(pplayer);
+				PLAYER_SET(LEAVING, pplayer);
 				break;
 			}
 		} while (inbytes > 0);
@@ -543,18 +357,17 @@ handleinput(fd_set needread)
 void
 removeplayer(struct splayer *player)
 {
-	if (player->chnl) {
-		player->chnl->count--;
+	int count;
 
-		if ((player->chnl->count <= 0) && !(player->chnl->persistent))
-			remove_channel(player->chnl);
-	} else {
-		/* NULL */; /* can happen if player has not set name yet and is
-			       in limbo */
+	if (player->chnl) {
+		count = channel_deref(player->chnl);
+
+		if ((count <= 0) && !channel_persists(player->chnl))
+			channel_del(player->chnl);
 	}
 
-	snprintf(sendbuf, sendbufsz, "player %s(%d) from %s left",
-		 player->name, player_getline(player), player->host);
+	snprintf(sendbuf, sendbufsz, "player %s(%d) from %s left", player->name,
+	    player_getline(player), player->host);
 	logmsg(sendbuf);
 
 	snprintf(sendbuf, sendbufsz, ">> line %d(%s) just left.\r\n",
@@ -568,14 +381,22 @@ removeplayer(struct splayer *player)
 
 	closesock_ssl(player->h);
 
-	if (player->prev)
-		player->prev->next = player->next;
-
-	if (player->next)
-		player->next->prev = player->prev;
+	SLIST_REMOVE(&playerhead, player, splayer, entries);
 
 	free((struct splayer *)player);
 	numconnect--;
+}
+
+parse_error
+kill_all_players(struct splayer *pplayer, char *buf)
+{
+	struct splayer *curr;
+
+	SLIST_FOREACH(curr, &playerhead, entries)
+		if (curr->seclevel < SUPREME)
+			PLAYER_SET(LEAVING, curr);
+
+	return PARSE_OK;
 }
 
 char *
@@ -597,8 +418,6 @@ wholist(struct splayer *pplayer, char *instring)
 	if (!*target)
 		target = NULL;
 
-	buf = players->next;
-
 #ifdef ONFROM_ANY
 	snprintf(sendbuf, sendbufsz, "%-4s %-27s %-13s %-6s %-25s\r\n", "Line",
 	    "Name", "Channel", "Idle", "Doing  ");
@@ -609,7 +428,7 @@ wholist(struct splayer *pplayer, char *instring)
 	sendtoplayer(pplayer, sendbuf);
 	sendtoplayer(pplayer, LINE);
 
-	while (buf) {
+	SLIST_FOREACH(buf, &playerhead, entries) {
 		match = 0;
 		int line = player_getline(buf);
 		if (target) {
@@ -638,8 +457,6 @@ wholist(struct splayer *pplayer, char *instring)
 			sendtoplayer(pplayer, sendbuf);
 			count++;
 		};
-
-		buf = buf->next;
 	}
 
 	sendtoplayer(pplayer, LINE);
@@ -671,8 +488,6 @@ wholist2(struct splayer *pplayer, char *instring)
 	strcpy(vrfy[0], "No");
 	strcpy(vrfy[1], "Yes");
 
-	buf = players->next;
-
 	/*
 	  Line Name            On For   Vrfy     Host:Port         Lev
 	  -------------------------------------------------------------------------------
@@ -685,7 +500,7 @@ wholist2(struct splayer *pplayer, char *instring)
 	sendtoplayer(pplayer, sendbuf);
 	sendtoplayer(pplayer, LINE);
 
-	while (buf) {
+	SLIST_FOREACH(buf, &playerhead, entries) {
 		int line = player_getline(buf);
 		match = 0;
 		if (target) {
@@ -716,8 +531,6 @@ wholist2(struct splayer *pplayer, char *instring)
 
 			count++;
 		};
-
-		buf = buf->next;
 	}
 
 	sendtoplayer(pplayer, LINE);
@@ -739,11 +552,9 @@ wholist3(struct splayer *pplayer)
 	struct splayer *buf;
 	int count = 0;
 
-	buf = players->next;
-
 	sendtoplayer(pplayer, LINE);
 
-	while (buf) {
+	SLIST_FOREACH(buf, &playerhead, entries) {
 		int line = player_getline(buf);
 		snprintf(sendbuf, sendbufsz, "%2d%c)%-14.14s", line,
 		    PLAYER_HAS(HUSH, buf) ? 'H' : ' ', buf->name);
@@ -751,8 +562,6 @@ wholist3(struct splayer *pplayer)
 		count++;
 		if (!(count % 4))
 			sendtoplayer(pplayer, "\r\n");
-
-		buf = buf->next;
 	}
 
 	if (count % 4)
@@ -945,7 +754,7 @@ sendtoplayer(struct splayer *who, char *message)
 		while (!isdigit(message[end]) && message[end])
 			end++;
 		line = atoi(&message[end]);
-		sender = lookup(line);
+		sender = player_lookup(line);
 		if (!sender)
 			return 0;
 		if (isgagged(who, sender))
@@ -1009,16 +818,31 @@ welcomeplayer(struct splayer *pplayer)
 }
 
 struct splayer *
-lookup(int linenum)
+player_lookup(int linenum)
 {
-	struct splayer *tmp = players;
+	struct splayer *tmp;
 
 	if (linenum == 0)
 		return (struct splayer *)0;
 
-	while (tmp->next != (struct splayer *)0) {
-		tmp = tmp->next;
+	SLIST_FOREACH(tmp, &playerhead, entries) {
 		if (tmp->h->sock == linenum)
+			return tmp;
+	}
+
+	return (struct splayer *)0;
+}
+
+struct splayer *
+player_find(const char *name)
+{
+	struct splayer *tmp;
+
+	if (!name)
+		return (struct splayer *)0;
+
+	SLIST_FOREACH(tmp, &playerhead, entries) {
+		if (!strcmp(name, tmp->name))
 			return tmp;
 	}
 
