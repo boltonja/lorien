@@ -42,46 +42,34 @@
 #define TRIE_SPAN 256
 
 struct trie_node {
+	SLIST_ENTRY(trie_node) entries;
 	struct trie_node *leaves[TRIE_SPAN];
 	void *payload;
 };
 
 typedef struct trie_node trie;
 
-enum trie_match_modes {		 /* for constructing bitmasks */
-	trie_keymatch_exact = 0, /* special case, no options set means exact */
-	trie_keymatch_ambiguous =
-	    1, /* bit set, ambiguous.  clear, unambiguous */
-	trie_keymatch_abbrev =
-	    2, /* attempt to auto-complete abbreviated keys */
-	trie_keymatch_substring =
-	    4, /* match initial portion of key, for commands w/o lexical
-		  separation from their parameters */
-	trie_keymatch_caseblind = 8,
-	/* derived masks. */
-	/* first of any ambiguous abbreviation, consuming all of key */
-	trie_keymatch_first = trie_keymatch_ambiguous | trie_keymatch_abbrev,
-	/* first of any ambiguous abbreviation, in initial portion */
-	trie_keymatch_substring_first = trie_keymatch_first |
-	    trie_keymatch_substring,
-	/* start of key is unambiguous abbrev */
-	trie_keymatch_substring_abbrev = trie_keymatch_substring |
-	    trie_keymatch_abbrev
+enum trie_match_modes {
+	trie_match_autocomplete,  /* find only completion */
+	trie_match_ambiguous,     /* find any completion */
+	trie_match_fuzzy,         /* partial match, find any completion */
+	trie_match_max = trie_match_fuzzy
 };
 
 trie *trie_add(trie *root, unsigned char *key, size_t keysz, void *payload,
     int *status);
 int trie_collapse(trie *root, bool free_payloads);
 int trie_delete(trie *root, unsigned char *key, size_t ksz, bool free_payloads);
+bool trie_isempty(trie *root);
 trie *trie_find_first(trie *root);
 trie *trie_get(trie *root, unsigned char *key, size_t ksz);
 trie *trie_match(trie *root, unsigned char *key, size_t keysz, size_t *matched,
-    int mode);
+    enum trie_match_modes mode);
 trie *trie_new(void);
 void *trie_payload(trie *root);
-int trie_preorder(trie *root, void *ctx, int (*func)(void *, void *),
+int trie_preorder(trie *root, void *ctx, int (*func)(void *, trie *),
     int lowfilt, int hifilt);
-int trie_postorder(trie *root, void *ctx, int (*func)(void *, void *),
+int trie_postorder(trie *root, void *ctx, int (*func)(void *, trie *),
     int lowfilt, int hifilt);
 
 #endif /* _TRIE_H_ */

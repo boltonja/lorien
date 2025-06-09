@@ -61,7 +61,7 @@ parser_search_table(struct parse_context *context, char *pattern,
 	trie *leaf;
 
 	leaf = trie_match(context->index, (unsigned char *)pattern,
-	    strlen(pattern), matched, trie_keymatch_substring_first);
+	    strlen(pattern), matched, trie_match_fuzzy);
 
 	return (leaf) ? leaf->payload : NULL;
 }
