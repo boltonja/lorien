@@ -159,7 +159,7 @@ newplayer(struct servsock_handle *ssh)
 	}
 
 	/* create a new player struct(record) */
-	buf = (struct splayer *)malloc(sizeof(struct splayer));
+	buf = (struct splayer *)calloc(1, sizeof(struct splayer));
 
 	if (!buf) {
 		snprintf(sendbuf, sendbufsz,
@@ -381,7 +381,22 @@ removeplayer(struct splayer *player)
 
 	closesock_ssl(player->h);
 
-	SLIST_REMOVE(&playerhead, player, splayer, entries);
+	struct splayer *curr, *prev = NULL;
+        bool found = false;
+	SLIST_FOREACH(curr, &playerhead, entries) {
+		if (curr == player) {
+			found = true;
+			break;
+		}
+		prev = curr;
+	}
+
+	if (found) {
+		if (prev)
+			SLIST_REMOVE_AFTER(prev, entries);
+		else
+			SLIST_REMOVE_HEAD(&playerhead, entries);
+	}
 
 	free((struct splayer *)player);
 	numconnect--;
